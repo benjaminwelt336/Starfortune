@@ -22,11 +22,10 @@ export default async function handler(req, res) {
     body: JSON.stringify(payload)
   });
 
-  // 统一按 JSON 返回
-  let text = await r.text();
+  // 统一按 JSON 返回（上游偶尔非 JSON 时也不会把 HTML抛给前端）
+  const text = await r.text();
   try {
-    const json = JSON.parse(text);
-    res.status(r.status).json(json);
+    res.status(r.status).json(JSON.parse(text));
   } catch {
     res.setHeader('Content-Type', 'application/json');
     res.status(502).json({ error: 'upstream_not_json', body: text });
