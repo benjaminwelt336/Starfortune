@@ -1,31 +1,11 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/*.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "dist/**",
-      "use": "@vercel/static"
-    }
+    { "src": "api/*.js", "use": "@vercel/node" },
+    { "src": "dist/**", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/lunar",
-      "dest": "api/lunar.js"
-    },
-    {
-      "src": "/api/star",
-      "dest": "api/star.js"
-    },
-    {
-      "src": "/v1/chat/completions",
-      "dest": "api/advice.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.html"
-    }
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/dist/index.html" }
   ]
 }
