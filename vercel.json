@@ -6,7 +6,14 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
+
+    // 静态资源转到 dist
+    { "src": "/assets/(.*)", "dest": "/dist/assets/$1" },
+    { "src": "/(.*\\.[^/]+)$", "dest": "/dist/$1" },
+
     { "handle": "filesystem" },
+
+    // SPA 回退
     { "src": "/(.*)", "dest": "/dist/index.html" }
   ]
 }
