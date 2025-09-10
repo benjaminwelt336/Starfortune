@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const key = process.env.OPENAI_KEY;
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const model = process.env.OPENAI_MODEL || 'deepseek-ai/DeepSeek-V3.1';
 
   // 读取请求体
   const chunks = [];
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   payload.model = payload.model || model;
 
   // 代理到 laozhang
-  const r = await fetch('https://api.laozhang.ai/v1/chat/completions', {
+  const r = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
     body: JSON.stringify(payload)
