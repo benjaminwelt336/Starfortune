@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try { payload = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch {}
   payload.model = payload.model || model;
 
-  // 代理到 laozhang
+  // 代理到硅基流动
   const r = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
