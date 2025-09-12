@@ -751,8 +751,8 @@ export default function StarfortuneFullPreview() {
       <Card>
         <SectionTitle icon={Sparkles} title="OpenAI 设置" />
         <div className="mb-3 flex items-center gap-4">
-          <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="aimode" checked={aiMode === 'official'} onChange={() => switchMode('official')} /> 官方（固定为你的三项配置）</label>
-          <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="aimode" checked={aiMode === 'custom'} onChange={() => switchMode('custom')} /> 自定义（会清空三项）</label>
+          <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="aimode" checked={aiMode === 'official'} onChange={() => switchMode('official')} /> 官方设置</label>
+          <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="aimode" checked={aiMode === 'custom'} onChange={() => switchMode('custom')} /> 自定义</label>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
@@ -774,7 +774,7 @@ export default function StarfortuneFullPreview() {
       </Card>
       <div className="flex items-center justify-between">
         <div className="text-xs text-slate-500">提示：官方模式自动使用固定配置；自定义会清空三项。</div>
-        <button onClick={resetDefaults} className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50">重置为默认</button>
+        <button onClick={resetDefaults} className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50">重置数据</button>
       </div>
     </div>
   );
