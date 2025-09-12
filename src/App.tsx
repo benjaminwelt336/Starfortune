@@ -221,7 +221,12 @@ export default function StarfortuneFullPreview() {
   }, [starData, starTab, dateTimeLocal]);
 
   // URL helpers
-  const toApiDateTime = (dtLocal: string) => (dtLocal || new Date().toISOString().slice(0, 16)).replace("T", " ") + ":00";
+  // 只用本地“日”，时间固定为中午，避免跨时区解析导致的前后日偏移
+  const toApiDateTime = (dtLocal: string) => {
+  const s = dtLocal || formatLocal(new Date()); // e.g. "2025-09-12T10:57"
+  const [ymd] = s.split("T");                   // 只取 "2025-09-12"
+  return `${ymd} 12:00:00`;                     // 固定到本地当天中午，避免 -8/+8 穿越
+};
   const buildUrl = (base: string, path: string, params: Record<string, string>) => {
     const u = new URL(path, base.endsWith("/") ? base : base + "/");
     Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
