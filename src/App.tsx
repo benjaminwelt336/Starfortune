@@ -484,7 +484,7 @@ export default function StarfortuneFullPreview() {
       <div className="absolute inset-0" style={{ background: gradient }} />
       <div className="absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-white/30 blur-2xl" />
       {Deco ? (
-        <div className={`absolute right-4 bottom-3 ${decoClass ?? "text-slate-600/25"}}`}>
+        <div className={`absolute right-4 bottom-3 ${decoClass ?? "text-slate-600/25"}`}>
           <Deco className="w-16 h-16" />
         </div>
       ) : null}
@@ -571,7 +571,7 @@ export default function StarfortuneFullPreview() {
           <ChevronIcon className={`w-4 h-4 ml-1 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
         {open && (
-          <div ref={popRef} className="absolute z-30 mt-2 w-44 max-h-80 overflow-auto rounded-xl border bg-white shadow-lg p-1">
+          <div ref={popRef} className="absolute z-30 mt-2 w-44 max长-80 overflow-auto rounded-xl border bg-white shadow-lg p-1">
             {SIGNS.map((s) => (
               <button
                 key={s.value}
@@ -651,13 +651,13 @@ export default function StarfortuneFullPreview() {
           <SignSelect value={sign} onChange={(v)=>setSign(v)} />
           <div className="rounded-xl border px-3 py-1.5 bg-white text-slate-600">{displayDate}</div>
           <div className="flex items-center gap-2">
-            {([
+            {[
               ["day", "今日"],
               ["tomorrow", "明日"],
               ["week", "本周"],
               ["month", "本月"],
               ["year", "全年"],
-            ] as const).map(([k, label]) => (
+            ].map(([k, label]) => (
               <button key={k} onClick={() => setStarTab(k as any)} className={`px-3 py-1.5 rounded-full text-sm border ${starTab === k ? "bg-indigo-600 text-white border-indigo-600" : "bg-white hover:bg-slate-50"}`}>{label}</button>
             ))}
           </div>
@@ -736,11 +736,11 @@ export default function StarfortuneFullPreview() {
         <SectionTitle icon={Settings} title="ALAPI 设置" />
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
-            <div className="text-sm text-slate-600 mb-1">ALAPI 基址</div>
+            <div className="text-sm text-slate-600 mb-1">ALAPI地址</div>
             <input className="w-full rounded-xl border px-3 py-2 bg-white" value={alapiBase} onChange={(e) => setAlapiBase(e.target.value)} placeholder="https://v3.alapi.cn" />
           </label>
           <label className="block">
-            <div className="text-sm text-slate-600 mb-1">ALAPI Token</div>
+            <div className="text-sm text-slate-600 mb-1">ALAPI秘钥</div>
             <div className="flex items-center gap-2">
               <input className="w-full rounded-xl border px-3 py-2 bg-white" type={showAlapiToken ? "text" : "password"} value={alapiToken} onChange={(e) => setAlapiToken(e.target.value)} placeholder="你的 token" />
               <button type="button" onClick={() => setShowAlapiToken((s) => !s)} className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50">{showAlapiToken ? "隐藏" : "显示"}</button>
