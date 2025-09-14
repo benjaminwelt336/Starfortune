@@ -221,31 +221,34 @@ export default function StarfortuneFullPreview() {
   }, [starData, starTab, dateTimeLocal]);
 
   // URL helpers
-function toApiDateTime(localDT: string | Date) {
-  const d = localDT instanceof Date ? localDT : new Date(localDT);
-  const y = d.getFullYear();
-  const m = pad2(d.getMonth() + 1);
-  const day = pad2(d.getDate());
-  const h = pad2(d.getHours());
-  const mi = pad2(d.getMinutes());
-  return `${y}-${m}-${day} ${h}:${mi}`;
-}
+// 工具：左侧补零
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
+// 把 Date → <input type="datetime-local"> 的值
 function toLocalInputValue(d: Date) {
-  const y = d.getFullYear();
-  const m = pad2(d.getMonth() + 1);
-  const day = pad2(d.getDate());
-  const h = pad2(d.getHours());
-  const mi = pad2(d.getMinutes());
+  const y = d.getFullYear(), m = pad2(d.getMonth() + 1), day = pad2(d.getDate());
+  const h = pad2(d.getHours()), mi = pad2(d.getMinutes());
   return `${y}-${m}-${day}T${h}:${mi}`;
 }
 
+// 发送给 ALAPI 的日期时间：固定到本地当天中午，避免跨时区穿越
+function toApiDateTime(localDT?: string | Date) {
+  if (localDT instanceof Date) {
+    const y = localDT.getFullYear(), m = pad2(localDT.getMonth() + 1), day = pad2(localDT.getDate());
+    return `${y}-${m}-${day} 12:00:00`;
+  }
+  const s = (typeof localDT === "string" && localDT) ? localDT : toLocalInputValue(new Date());
+  const [ymd] = s.split("T");           // 只取 YYYY-MM-DD，不解析成 Date
+  return `${ymd} 12:00:00`;             // 固定到 12:00:00
+}
+
+// 距离下一次本地午夜（用于自动刷新）
 function midnightInMs(from = new Date()) {
   const n = new Date(from);
-  n.setHours(24, 1, 0, 0);
-  return n.getTime() - Date.now();
+  n.setHours(24, 0, 0, 0);
+  return n.getTime() - from.getTime();
 }
-  
+
   const buildUrl = (base: string, path: string, params: Record<string, string>) => {
     const u = new URL(path, base.endsWith("/") ? base : base + "/");
     Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
