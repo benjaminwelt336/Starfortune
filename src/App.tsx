@@ -221,33 +221,32 @@ export default function StarfortuneFullPreview() {
   }, [starData, starTab, dateTimeLocal]);
 
   // URL helpers
-// 工具：左侧补零
-const pad2 = (n: number) => String(n).padStart(2, "0");
+  const [dateTimeLocal, setDateTimeLocal] = useState(() => getLS("date_time", formatLocal(new Date())));
+  const [sign, setSign] = useState(() => {
+    const v = getLS("star_sign", "capricorn");
+    // 兼容老数据：如果是中文名，映射到英文
+    if (!EN_SIGNS.includes(v)) return ZH_TO_EN[v as any] ?? "capricorn";
+    return v;
+  });
+  const [starTab, setStarTab] = useState<"day" | "tomorrow" | "week" | "month" | "year">("day");
+  const [expandAlmanac, setExpandAlmanac] = useState(false);
+  const [showStarDetail, setShowStarDetail] = useState(false);
 
-// 把 Date → <input type="datetime-local"> 的值
-function toLocalInputValue(d: Date) {
-  const y = d.getFullYear(), m = pad2(d.getMonth() + 1), day = pad2(d.getDate());
-  const h = pad2(d.getHours()), mi = pad2(d.getMinutes());
-  return `${y}-${m}-${day}T${h}:${mi}`;
-}
+  useEffect(() => setLS("date_time", dateTimeLocal), [dateTimeLocal]);
+  useEffect(() => setLS("star_sign", sign), [sign]);
 
-// 发送给 ALAPI 的日期时间：固定到本地当天中午，避免跨时区穿越
-function toApiDateTime(localDT?: string | Date) {
-  if (localDT instanceof Date) {
-    const y = localDT.getFullYear(), m = pad2(localDT.getMonth() + 1), day = pad2(localDT.getDate());
-    return `${y}-${m}-${day} 12:00:00`;
-  }
-  const s = (typeof localDT === "string" && localDT) ? localDT : toLocalInputValue(new Date());
-  const [ymd] = s.split("T");           // 只取 YYYY-MM-DD，不解析成 Date
-  return `${ymd} 12:00:00`;             // 固定到 12:00:00
-}
+  // 首次加载：强制使用系统本地时间，覆盖可能的旧 UTC 值
+  useEffect(() => {
+    const now = formatLocal(new Date());
+    setDateTimeLocal(now);
+    setLS("date_time", now);
+  }, []);
 
-// 距离下一次本地午夜（用于自动刷新）
-function midnightInMs(from = new Date()) {
-  const n = new Date(from);
-  n.setHours(24, 0, 0, 0);
-  return n.getTime() - from.getTime();
-}
+  // 午夜自动刷新
+  useEffect(() => {
+    const t = setTimeout(() => setDateTimeLocal(formatLocal(new Date())), msToNextMidnight());
+    return () => clearTimeout(t);
+  }, []);
 
   const buildUrl = (base: string, path: string, params: Record<string, string>) => {
     const u = new URL(path, base.endsWith("/") ? base : base + "/");
