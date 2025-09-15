@@ -550,7 +550,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           {/* 六曜 */}
           <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
             <div className="text-slate-700/80 text-sm">六曜</div>
-            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.liuyue || "—"}</div>
+            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.six_star}</div>
           </div>
 
           {/* 宜 */}
