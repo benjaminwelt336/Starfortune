@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Lucide from "lucide-react";
 
-/* ===================== 小工具 ===================== */
+/* ============ LocalStorage helpers ============ */
 const getLS = (k: string, d: string) => { try { const v = localStorage.getItem(k); return v ?? d; } catch { return d; } };
 const setLS = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch {} };
-const pad2 = (n: number) => String(n).padStart(2, "0");
 
-// 以本地时区格式化成 <input type="datetime-local"> 的值
+/* ============ Date helpers ============ */
+const pad2 = (n: number) => String(n).padStart(2, "0");
 const formatLocal = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-// 发送给 ALAPI 的日期时间：只取本地“日期”，固定到当天中午，避免跨时区把日期推前/推后
+// 发送给 ALAPI：只取“本地日期”，固定到当天 12:00:00，避免跨时区把日期推前/推后
 function toApiDateTime(localDT?: string | Date) {
   if (localDT instanceof Date) {
     const y = localDT.getFullYear(), m = pad2(localDT.getMonth() + 1), day = pad2(localDT.getDate());
@@ -20,15 +20,13 @@ function toApiDateTime(localDT?: string | Date) {
   const [ymd] = s.split("T");
   return `${ymd} 12:00:00`;
 }
-
-// 到下一次本地“午夜”的毫秒数（用于自动刷新）
 function msToNextMidnight(from = new Date()) {
   const next = new Date(from);
   next.setHours(24, 0, 0, 0);
   return next.getTime() - from.getTime();
 }
 
-/* ===================== 图标安全封装 ===================== */
+/* ============ Icon safe wrappers ============ */
 const IconCmp = ({ Comp, className = "" }: { Comp: any; className?: string }) => {
   if (!Comp) return null;
   const C = Comp as any;
@@ -44,11 +42,9 @@ const ChevronIcon = ({ up = false, className = "" }: { up?: boolean; className?:
   );
 };
 
-const {
-  CalendarDays, Sun, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2,
-} = (Lucide as any);
+const { CalendarDays, Sun, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
 
-/* ===================== UI 基元 ===================== */
+/* ============ UI atoms ============ */
 const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
   <div className="flex items-center justify-between mb-4">
     <div className="flex items-center gap-2 text-slate-800">
@@ -66,7 +62,7 @@ const Card = ({ children }: { children: React.ReactNode }) => (
   <div className="rounded-2xl border bg-white/80 shadow-sm backdrop-blur p-4 md:p-6">{children}</div>
 );
 
-/* ===================== 星座选择 ===================== */
+/* ============ Signs ============ */
 const SIGNS: { value: string; label: string; symbol: string }[] = [
   { value: "aries", label: "白羊座", symbol: "♈" },
   { value: "taurus", label: "金牛座", symbol: "♉" },
@@ -81,8 +77,8 @@ const SIGNS: { value: string; label: string; symbol: string }[] = [
   { value: "aquarius", label: "水瓶座", symbol: "♒" },
   { value: "pisces", label: "双鱼座", symbol: "♓" },
 ];
-const EN_SIGNS = SIGNS.map((s) => s.value);
-const ZH_TO_EN: Record<string, string> = Object.fromEntries(SIGNS.map((s) => [s.label, s.value]));
+const EN_SIGNS = SIGNS.map(s => s.value);
+const ZH_TO_EN: Record<string, string> = Object.fromEntries(SIGNS.map(s => [s.label, s.value]));
 
 const SignSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
   const [open, setOpen] = useState(false);
@@ -98,13 +94,13 @@ const SignSelect = ({ value, onChange }: { value: string; onChange: (v: string) 
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
-  const cur = SIGNS.find((s) => s.value === value) || SIGNS[0];
+  const cur = SIGNS.find(s => s.value === value) || SIGNS[0];
   return (
     <div className="relative">
       <button
         ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(o => !o)}
         className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 bg-white"
       >
         <span className="text-slate-800 text-sm">{cur.symbol} {cur.label}</span>
@@ -112,7 +108,7 @@ const SignSelect = ({ value, onChange }: { value: string; onChange: (v: string) 
       </button>
       {open && (
         <div ref={popRef} className="absolute z-30 mt-2 w-44 max-h-80 overflow-auto rounded-xl border bg-white shadow-lg p-1">
-          {SIGNS.map((s) => (
+          {SIGNS.map(s => (
             <button
               key={s.value}
               type="button"
@@ -130,12 +126,11 @@ const SignSelect = ({ value, onChange }: { value: string; onChange: (v: string) 
   );
 };
 
-/* ===================== 主组件 ===================== */
+/* ============ Main ============ */
 export default function App() {
-  /* 路由（首页/设置） */
   const [page, setPage] = useState<"home" | "settings">("home");
 
-  /* ====== ALAPI 设置 ====== */
+  /* ALAPI */
   const ALAPI_DEFAULT_TOKEN = "hjp5u0tjjofehuytfmkjsfnfxgq1g8";
   const [alapiBase, setAlapiBase] = useState(() => getLS("alapi_base", "https://v3.alapi.cn"));
   const [alapiToken, setAlapiToken] = useState(() => getLS("alapi_token", ALAPI_DEFAULT_TOKEN));
@@ -143,7 +138,7 @@ export default function App() {
   useEffect(() => setLS("alapi_base", alapiBase), [alapiBase]);
   useEffect(() => setLS("alapi_token", alapiToken), [alapiToken]);
 
-  /* ====== OpenAI 设置（官方 / 自定义） ====== */
+  /* OpenAI */
   const OFFICIAL = {
     base: "https://api.siliconflow.cn/v1/chat/completions",
     key: "sk-sarbhjodkolnuwdrzfkzkziemxwbvtfocevjwguhwtlyneyh",
@@ -163,9 +158,9 @@ export default function App() {
     if (mode === aiMode) return;
     setAiMode(mode);
     if (mode === "official") {
-      setAiBase( OFFICIAL.base );
-      setOpenAIKey( OFFICIAL.key );
-      setOpenAIModel( OFFICIAL.model );
+      setAiBase(OFFICIAL.base);
+      setOpenAIKey(OFFICIAL.key);
+      setOpenAIModel(OFFICIAL.model);
     } else {
       setAiBase("");
       setOpenAIKey("");
@@ -173,7 +168,7 @@ export default function App() {
     }
   };
 
-  /* ====== 首页状态 ====== */
+  /* Home states */
   const [dateTimeLocal, setDateTimeLocal] = useState(() => getLS("date_time", formatLocal(new Date())));
   const [sign, setSign] = useState(() => {
     const v = getLS("star_sign", "capricorn");
@@ -187,25 +182,24 @@ export default function App() {
   useEffect(() => setLS("date_time", dateTimeLocal), [dateTimeLocal]);
   useEffect(() => setLS("star_sign", sign), [sign]);
 
-  // 首次加载：强制使用系统本地时间
+  // 初始强制为系统时间；午夜自动刷新
   useEffect(() => {
     const now = formatLocal(new Date());
     setDateTimeLocal(now);
     setLS("date_time", now);
   }, []);
-
-  // 午夜自动刷新
   useEffect(() => {
     const t = setTimeout(() => setDateTimeLocal(formatLocal(new Date())), msToNextMidnight());
     return () => clearTimeout(t);
   }, []);
 
-  /* ===================== Almanac（黄历） ===================== */
+  /* ======== Almanac ======== */
   const buildUrl = (base: string, path: string, params: Record<string, string>) => {
     const u = new URL(path, base.endsWith("/") ? base : base + "/");
     Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
     return u.toString();
   };
+  // 按你现状：依然用当前输入框的“日期”
   const almanacUrl = useMemo(
     () => buildUrl(alapiBase, "/api/lunar", { token: alapiToken || "", date: toApiDateTime(dateTimeLocal) }),
     [alapiBase, alapiToken, dateTimeLocal]
@@ -230,26 +224,69 @@ export default function App() {
       setAlmanacLoading(false);
     }
   };
-  // ✅ 只跟随 URL 变化拉取（展开不再触发请求）
+  // 只随 URL 拉取（展开不会再请求）
   useEffect(() => { fetchAlmanac(); }, [almanacUrl]);
 
+  // ★ 修复：六曜显示“—”；同时稳健解析 农历/干支/五行
   const almanacParsed = useMemo(() => {
     try {
       const d: any = (almanacData?.data ?? almanacData) || {};
-      const norm = (v: any): string[] => {
+
+      const normList = (v: any): string[] => {
         if (Array.isArray(v)) return v.filter(Boolean);
         if (typeof v === "string") {
           const seps = ["、", "，", ",", " "]; let s = v;
           for (const c of seps) s = s.split(c).join(" ");
-          return s.split(" ").map((x) => x.trim()).filter(Boolean);
+          return s.split(" ").map(x => x.trim()).filter(Boolean);
         }
         return [];
       };
-      const yiList = norm(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
-      const jiList = norm(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+      const pickText = (...keys: string[]) => {
+        for (const k of keys) {
+          const v = d?.[k];
+          if (typeof v === "string" && v.trim()) return v.trim();
+        }
+        return null;
+      };
 
-      let liuyue = d.liuyue;
-      if (!liuyue && typeof d.youyin === "string") liuyue = d.youyin.split("·")[0];
+      const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
+      const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+
+      // 六曜多字段兼容
+      const coerceLiuYao = (v: any): string | null => {
+        if (!v) return null;
+        if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
+        if (typeof v === "string") return (v.split("·")[0].trim() || null);
+        return null;
+      };
+      const liuyue =
+        coerceLiuYao(
+          pickText(
+            "liuyao", "liu_yao", "sixyao", "six_yao",
+            "rokuyo",
+            "youyin", "youyin_cn", "liuyin",
+            "liuri", "riyao"
+          )
+        ) || null;
+
+      // 农历/干支/五行多字段兜底
+      const nongliDirect = pickText("lunar", "nongli", "lunar_calendar", "nl", "lunar_cn", "lunar_text");
+      const nongliComposed = (() => {
+        const y = pickText("lunar_year_cn", "year_cn");
+        const m = pickText("lunar_month_cn", "month_cn");
+        const day = pickText("lunar_day_cn", "day_cn");
+        if (y || m || day) return `${y ?? ""}${y ? "年" : ""}${m ?? ""}${m ? "月" : ""}${day ?? ""}`.trim();
+        return null;
+      })();
+      const nongli = nongliDirect ?? nongliComposed ?? null;
+
+      const ganzhiDirect = pickText("ganzhi", "gz", "tiangan_dizhi", "gan_zhi", "tgdz");
+      const gzYear = pickText("ganzhi_year", "gan_zhi_year", "tgdz_year");
+      const gzMonth = pickText("ganzhi_month", "gan_zhi_month", "tgdz_month");
+      const gzDay = pickText("ganzhi_day", "gan_zhi_day", "tgdz_day");
+      const ganzhi = ganzhiDirect ?? ([gzYear, gzMonth, gzDay].filter(Boolean).join(" ") || null);
+
+      const wuxing = pickText("wuxing", "five_elements", "wuxing_text", "wx", "five_element", "nayin", "na_yin");
 
       return {
         yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
@@ -258,22 +295,20 @@ export default function App() {
         xishen: d.xishen, xishen_desc: d.xishen_desc,
         taishen: d.taishen, shou: d.shou,
         xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
-        // ✅ 农历/干支/五行：多字段容错
-        nongli: d.lunar ?? d.nongli ?? d.lunar_calendar,
-        ganzhi: d.ganzhi ?? d.gz ?? d.tiangan_dizhi,
-        wuxing: d.wuxing ?? d.five_elements,
+        nongli, ganzhi, wuxing,
       };
     } catch {
-      return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "" } as any;
+      return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "", nongli: null, ganzhi: null, wuxing: null } as any;
     }
   }, [almanacData]);
 
-  /* ===================== Star（星座） ===================== */
+  /* ======== Star ======== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
   const starAbortRef = useRef<AbortController | null>(null);
 
+  // ⭐️ 保持现状：仍使用 dateTimeLocal 作为请求日期
   const fetchStar = async (starOverride?: string, typeOverride?: string) => {
     try {
       if (starAbortRef.current) starAbortRef.current.abort();
@@ -288,7 +323,7 @@ export default function App() {
       const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
       u.searchParams.set("star", starParam);
       u.searchParams.set("type", typeOverride ?? "all");
-      u.searchParams.set("date", toApiDateTime(dateTimeLocal));
+      u.searchParams.set("date", toApiDateTime(dateTimeLocal)); // ← 保持不变
       u.searchParams.set("_ts", Date.now().toString());
 
       const res = await fetch(u.toString(), { cache: "no-store", signal: controller.signal });
@@ -340,11 +375,9 @@ export default function App() {
         { key: "爱情", val: l, icon: Heart },
         { key: "财富", val: f, icon: Wallet },
         { key: "健康", val: h, icon: Activity },
-      ].filter((x) => x.val != null) as { key: string; val: number; icon: any }[];
+      ].filter(x => x.val != null) as { key: string; val: number; icon: any }[];
       return out.length ? out : null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
   const starScores = useMemo(
     () => pickStarScores(starSlice) ?? [
@@ -366,9 +399,7 @@ export default function App() {
       }
       if (typeof d.all_text === "string" && d.all_text.trim()) return d.all_text.trim();
       return null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
   const starSummaryFromApi = useMemo(() => pickStarSummary(starSlice), [starSlice]);
 
@@ -381,13 +412,10 @@ export default function App() {
         return s || null;
       };
       return { star: norm(d.lucky_star), color: norm(d.lucky_color), number: norm(d.lucky_number) };
-    } catch {
-      return { star: null, color: null, number: null };
-    }
+    } catch { return { star: null, color: null, number: null }; }
   };
   const luckyBits = useMemo(() => pickLuckyBits(starSlice), [starSlice]);
 
-  // 顶部日期（优先接口返回）
   const displayDate = useMemo(() => {
     try {
       const d: any = (starData?.data ?? starData) || {};
@@ -395,12 +423,10 @@ export default function App() {
       if (fromSlice) return fromSlice;
       const top = typeof d.date === "string" ? d.date.trim() : null;
       return top || dateTimeLocal.slice(0, 10);
-    } catch {
-      return dateTimeLocal.slice(0, 10);
-    }
+    } catch { return dateTimeLocal.slice(0, 10); }
   }, [starData, starTab, dateTimeLocal]);
 
-  /* ===================== 今日建议（AI） ===================== */
+  /* ======== AI 今日建议 ======== */
   const [advLoading, setAdvLoading] = useState(false);
   const [advice, setAdvice] = useState<string>("");
 
@@ -434,14 +460,9 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
       }
       const res = await fetch(aiBase, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openAIKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Authorization": `Bearer ${openAIKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: openAIModel,
-          temperature: 0.7,
-          stream: false,
+          model: openAIModel, temperature: 0.7, stream: false,
           messages: [
             { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过30字。" },
             { role: "user", content: advicePrompt },
@@ -459,7 +480,6 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
     }
   }
 
-  // 自动生成：当你已填写 API 配置，且星座/日期/切片更新时触发
   useEffect(() => {
     if (!aiBase || !openAIKey || !openAIModel) return;
     if (starLoading || almanacLoading) return;
@@ -467,14 +487,14 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayDate, sign, starTab, starData, almanacData, starLoading, almanacLoading, aiBase, openAIKey, openAIModel]);
 
-  /* ===================== UI 结构 ===================== */
+  /* ========== UI ========== */
   const Home = (
     <div className="space-y-6">
       {/* 每日黄历 */}
       <Card>
         <SectionTitle icon={CalendarDays} title="每日黄历" />
 
-        {/* 顶部：日期 + 农历/干支/五行（移除“信息以系统时间为准”提示） */}
+        {/* 顶部：日期 + 农历/干支/五行 */}
         <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm mb-3">
           <input
             type="datetime-local"
@@ -673,7 +693,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         </div>
       </Card>
 
-      {/* OpenAI · 今日建议（你的三段式写法） */}
+      {/* OpenAI · 今日建议 */}
       <Card>
         <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
         {advLoading ? (
@@ -701,28 +721,13 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">ALAPI 基址</div>
-            <input
-              className="w-full rounded-xl border px-3 py-2 bg-white"
-              value={alapiBase}
-              onChange={(e) => setAlapiBase(e.target.value)}
-              placeholder="https://v3.alapi.cn"
-            />
+            <input className="w-full rounded-xl border px-3 py-2 bg-white" value={alapiBase} onChange={(e) => setAlapiBase(e.target.value)} placeholder="https://v3.alapi.cn" />
           </label>
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">ALAPI Token</div>
             <div className="flex items-center gap-2">
-              <input
-                className="w-full rounded-xl border px-3 py-2 bg-white"
-                type={showAlapiToken ? "text" : "password"}
-                value={alapiToken}
-                onChange={(e) => setAlapiToken(e.target.value)}
-                placeholder="你的 token"
-              />
-              <button
-                type="button"
-                onClick={() => setShowAlapiToken((s) => !s)}
-                className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50"
-              >
+              <input className="w-full rounded-xl border px-3 py-2 bg-white" type={showAlapiToken ? "text" : "password"} value={alapiToken} onChange={(e) => setAlapiToken(e.target.value)} placeholder="你的 token" />
+              <button type="button" onClick={() => setShowAlapiToken(s => !s)} className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50">
                 {showAlapiToken ? "隐藏" : "显示"}
               </button>
             </div>
@@ -745,40 +750,20 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">API地址</div>
-            <input
-              className="w-full rounded-xl border px-3 py-2 bg-white"
-              value={aiBase}
-              onChange={(e) => setAiBase(e.target.value)}
-              placeholder="https://api.siliconflow.cn/v1/chat/completions"
-            />
+            <input className="w-full rounded-xl border px-3 py-2 bg-white" value={aiBase} onChange={(e) => setAiBase(e.target.value)} placeholder="https://api.siliconflow.cn/v1/chat/completions" />
           </label>
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">API秘钥</div>
             <div className="flex items-center gap-2">
-              <input
-                className="w-full rounded-xl border px-3 py-2 bg-white"
-                type={showOpenAIKey ? "text" : "password"}
-                value={openAIKey}
-                onChange={(e) => setOpenAIKey(e.target.value)}
-                placeholder="sk-..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowOpenAIKey((s) => !s)}
-                className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50"
-              >
+              <input className="w-full rounded-xl border px-3 py-2 bg-white" type={showOpenAIKey ? "text" : "password"} value={openAIKey} onChange={(e) => setOpenAIKey(e.target.value)} placeholder="sk-..." />
+              <button type="button" onClick={() => setShowOpenAIKey(s => !s)} className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50">
                 {showOpenAIKey ? "隐藏" : "显示"}
               </button>
             </div>
           </label>
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">模型设置</div>
-            <input
-              className="w-full rounded-xl border px-3 py-2 bg-white"
-              value={openAIModel}
-              onChange={(e) => setOpenAIModel(e.target.value)}
-              placeholder="deepseek-ai/DeepSeek-V3.1"
-            />
+            <input className="w-full rounded-xl border px-3 py-2 bg-white" value={openAIModel} onChange={(e) => setOpenAIModel(e.target.value)} placeholder="deepseek-ai/DeepSeek-V3.1" />
           </label>
         </div>
       </Card>
