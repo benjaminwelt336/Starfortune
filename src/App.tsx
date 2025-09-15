@@ -2,15 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Lucide from "lucide-react";
 
 /* ============ LocalStorage helpers ============ */
-const getLS = (k: string, d: string) => { try { const v = localStorage.getItem(k); return v ?? d; } catch { return d; } };
-const setLS = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch {} };
+const getLS = (k: string, d: string) => { try { const v = localStorage.getItem(k); return v ?? d; } catch (_e) { return d; } };
+const setLS = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch (_e) {} };
 
 /* ============ Date helpers ============ */
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const formatLocal = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-// 发送给 ALAPI：只取“本地日期”，固定到当天 12:00:00，避免跨时区把日期推前/推后
+// 发送给 ALAPI：取“本地日期”，固定到当天 12:00:00，避免跨时区把日期推前/推后
 function toApiDateTime(localDT?: string | Date) {
   if (localDT instanceof Date) {
     const y = localDT.getFullYear(), m = pad2(localDT.getMonth() + 1), day = pad2(localDT.getDate());
@@ -193,7 +193,7 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /* ======== Almanac（POST + header token + JSON body） ======== */
+  /* ======== Almanac（POST 优先 + GET 回退） ======== */
   const almanacEndpoint = useMemo(
     () => `${alapiBase.replace(/\/$/, "")}/api/lunar`,
     [alapiBase]
@@ -208,25 +208,41 @@ export default function App() {
   const [almanacData, setAlmanacData] = useState<any>(null);
 
   const fetchAlmanac = async () => {
+    setAlmanacLoading(true);
+    setAlmanacError(null);
+
+    const body = JSON.stringify(almanacBody); // { date: "YYYY-MM-DD 12:00:00" }
+    const headers = {
+      "Content-Type": "application/json",
+      token: alapiToken || "",
+    } as Record<string, string>;
+
     try {
-      setAlmanacLoading(true);
-      setAlmanacError(null);
-
-      const res = await fetch(almanacEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          token: alapiToken || "",
-        },
-        body: JSON.stringify(almanacBody),
-      });
-
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const json = await res.json();
+      // 优先：官方推荐写法（POST + header token + JSON body）
+      let res = await fetch(almanacEndpoint, { method: "POST", headers, body });
+      if (!res.ok) throw new Error(`POST ${res.status} ${res.statusText}`);
+      let json = await res.json();
+      if (!(json?.code === 200 || json?.success === true)) {
+        throw new Error(`POST payload: ${json?.message || "unexpected response"}`);
+      }
       setAlmanacData(json);
-    } catch (e: any) {
-      setAlmanacError(e?.message || String(e));
-      setAlmanacData(null);
+    } catch (err1: any) {
+      // 回退：GET + query（防 CORS / 代理）
+      try {
+        const u = new URL(almanacEndpoint);
+        u.searchParams.set("date", (almanacBody as any).date);
+        if (alapiToken) u.searchParams.set("token", alapiToken);
+        const res2 = await fetch(u.toString(), { method: "GET", cache: "no-store" });
+        if (!res2.ok) throw new Error(`GET ${res2.status} ${res2.statusText}`);
+        const json2 = await res2.json();
+        if (!(json2?.code === 200 || json2?.success === true)) {
+          throw new Error(`GET payload: ${json2?.message || "unexpected response"}`);
+        }
+        setAlmanacData(json2);
+      } catch (err2: any) {
+        setAlmanacError(err2?.message || err1?.message || "请求失败");
+        setAlmanacData(null);
+      }
     } finally {
       setAlmanacLoading(false);
     }
@@ -238,60 +254,73 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [almanacEndpoint, alapiToken, almanacBody]);
 
-  // 解析：宜/忌/六曜 + 农历/干支/五行（按你给的字段）
-  // —— 工具：取纯文本
-const asText = (v: any): string | null => {
-  if (v == null) return null;
-  if (typeof v === "number") return String(v);
-  if (typeof v === "string") return v.trim() || null;
-  return null;
-};
+  // 解析：宜/忌 + 农历/干支/五行 + 六曜（只认 six_star）
+  const almanacParsed = useMemo(() => {
+    try {
+      const d: any = (almanacData?.data ?? almanacData) || {};
 
-// —— 工具：在任意层级里找 key 命中 /(six[_-]?star|六曜|六耀)/ 的【第一个字符串值】
-const deepFindSixStar = (obj: any): string | null => {
-  const seen = new Set<any>();
-  const re = /(six[_-]?star|六曜|六耀)/i;
-  const dfs = (o: any): string | null => {
-    if (!o || typeof o !== "object" || seen.has(o)) return null;
-    seen.add(o);
-    for (const k of Object.keys(o)) {
-      const v = o[k];
-      if (re.test(k)) {
-        const t = asText(v);
-        if (t) return t;                  // 命中
-        if (Array.isArray(v)) {
-          const s = v.find(x => typeof x === "string" && x.trim());
-          if (s) return (s as string).trim();
+      const normList = (v: any): string[] => {
+        if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
+        if (typeof v === "string") {
+          const seps = ["、", " ", "，", ",", " "]; let s = v;
+          for (const c of seps) s = s.split(c).join(" ");
+          return s.split(" ").map(x => x.trim()).filter(Boolean);
         }
-        if (v && typeof v === "object") {
-          const s2 = dfs(v);
-          if (s2) return s2;
-        }
-      }
-    }
-    // 继续深搜子对象
-    for (const k of Object.keys(o)) {
-      const v = o[k];
-      if (v && typeof v === "object") {
-        const s = dfs(v);
-        if (s) return s;
-      }
-    }
-    return null;
-  };
-  return dfs(obj);
-};
+        return [];
+      };
 
-// —— 六曜：只认 six_star（兼容写法 + 深搜）
-const six_star = (() => {
-  const direct =
-    asText(d.six_star) ??
-    asText(d.sixStar) ??
-    asText(d.sixstar);
-  if (direct) return direct;
-  const deep = deepFindSixStar(d);
-  return deep || null;
-})();
+      const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
+      const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+
+      // —— 六曜：只认 six_star（含大小写/不同分隔写法），并深搜
+      const asText = (v: any): string | null => {
+        if (v == null) return null;
+        if (typeof v === "number") return String(v);
+        if (typeof v === "string") return v.trim() || null;
+        return null;
+      };
+      const deepFindSixStar = (obj: any): string | null => {
+        const seen = new Set<any>();
+        const re = /^(six[_-]?star)$/i; // 仅匹配 six_star 系列
+        const dfs = (o: any): string | null => {
+          if (!o || typeof o !== "object" || seen.has(o)) return null;
+          seen.add(o);
+          for (const k of Object.keys(o)) {
+            const v = o[k];
+            if (re.test(k)) {
+              const t = asText(v);
+              if (t) return t;
+              if (Array.isArray(v)) {
+                const s = v.find(x => typeof x === "string" && x.trim());
+                if (s) return (s as string).trim();
+              }
+              if (v && typeof v === "object") {
+                const s2 = dfs(v);
+                if (s2) return s2;
+              }
+            }
+          }
+          for (const k of Object.keys(o)) {
+            const v = o[k];
+            if (v && typeof v === "object") {
+              const s = dfs(v);
+              if (s) return s;
+            }
+          }
+          return null;
+        };
+        return dfs(obj);
+      };
+      const six_star = (() => {
+        const direct =
+          asText(d.six_star) ??
+          asText((d as any).sixStar) ??
+          asText((d as any).sixstar) ??
+          asText((d as any)["six-star"]);
+        if (direct) return direct;
+        const deep = deepFindSixStar(d);
+        return deep || null;
+      })();
 
       // 农历（你给的字段：*_chinese）
       const nongli = (() => {
@@ -308,7 +337,7 @@ const six_star = (() => {
         return (legacy as string | undefined)?.trim() ?? null;
       })();
 
-      // 干支（你给的字段：ganzhi_year/month/day）
+      // 干支（ganzhi_year/month/day）
       const ganzhi = (() => {
         const y = (d.ganzhi_year as string) || "";
         const m = (d.ganzhi_month as string) || "";
@@ -331,7 +360,8 @@ const six_star = (() => {
       );
 
       return {
-        yiList, jiList, yCount: yiList.length, jCount: jiList.length, six_star,
+        yiList, jiList, yCount: yiList.length, jCount: jiList.length,
+        six_star,
         caishen: d.caishen, caishen_desc: d.caishen_desc,
         fushen: d.fushen, fushen_desc: d.fushen_desc,
         xishen: d.xishen, xishen_desc: d.xishen_desc,
@@ -339,12 +369,12 @@ const six_star = (() => {
         xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
         nongli, ganzhi, wuxing,
       };
-    } catch {
-      return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "", nongli: null, ganzhi: null, wuxing: null } as any;
+    } catch (_e) {
+      return { yiList: [], jiList: [], yCount: 0, jCount: 0, six_star: "", nongli: null, ganzhi: null, wuxing: null } as any;
     }
   }, [almanacData]);
 
-  /* ======== Star（保持你当前逻辑不变） ======== */
+  /* ======== Star（保持你当前逻辑不变，使用 /api/star 代理） ======== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
@@ -358,8 +388,7 @@ const six_star = (() => {
 
       setStarLoading(true); setStarError(null);
 
-      const u = new URL("/api/star", alapiBase.endsWith("/") ? alapiBase : alapiBase + "/");
-      u.searchParams.set("token", alapiToken || "");
+      const u = new URL("/api/star", window.location.origin); // 走你的 Vercel/Electron 本地 API
       const starRaw = starOverride ?? sign;
       const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
       u.searchParams.set("star", starParam);
@@ -379,7 +408,7 @@ const six_star = (() => {
       setStarLoading(false);
     }
   };
-  useEffect(() => { fetchStar(); }, [sign, alapiBase, alapiToken, dateTimeLocal]);
+  useEffect(() => { fetchStar(); }, [sign, dateTimeLocal]);
 
   const sliceByTab = (raw: any, tab: string) => {
     const d: any = (raw?.data ?? raw) || {};
@@ -418,7 +447,7 @@ const six_star = (() => {
         { key: "健康", val: h, icon: Activity },
       ].filter(x => x.val != null) as { key: string; val: number; icon: any }[];
       return out.length ? out : null;
-    } catch { return null; }
+    } catch (_e) { return null; }
   };
   const starScores = useMemo(
     () => pickStarScores(starSlice) ?? [
@@ -440,7 +469,7 @@ const six_star = (() => {
       }
       if (typeof d.all_text === "string" && d.all_text.trim()) return d.all_text.trim();
       return null;
-    } catch { return null; }
+    } catch (_e) { return null; }
   };
   const starSummaryFromApi = useMemo(() => pickStarSummary(starSlice), [starSlice]);
 
@@ -453,7 +482,7 @@ const six_star = (() => {
         return s || null;
       };
       return { star: norm(d.lucky_star), color: norm(d.lucky_color), number: norm(d.lucky_number) };
-    } catch { return { star: null, color: null, number: null }; }
+    } catch (_e) { return { star: null, color: null, number: null }; }
   };
   const luckyBits = useMemo(() => pickLuckyBits(starSlice), [starSlice]);
 
@@ -464,7 +493,7 @@ const six_star = (() => {
       if (fromSlice) return fromSlice;
       const top = typeof d.date === "string" ? d.date.trim() : null;
       return top || dateTimeLocal.slice(0, 10);
-    } catch { return dateTimeLocal.slice(0, 10); }
+    } catch (_e) { return dateTimeLocal.slice(0, 10); }
   }, [starData, starTab, dateTimeLocal]);
 
   /* ======== AI 今日建议 ======== */
@@ -571,7 +600,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
             <div className="text-slate-700/80 text-sm">凶神</div>
             <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.jCount}</div>
           </div>
-          {/* 六曜 */}
+          {/* 六曜（six_star） */}
           <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
             <div className="text-slate-700/80 text-sm">六曜</div>
             <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.six_star || "—"}</div>
