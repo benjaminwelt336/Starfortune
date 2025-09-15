@@ -623,33 +623,26 @@ export default function App() {
       <Card>
       <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
 
-     {adviceLoading ? (
-        <div className="text-slate-500 text-sm">正在生成建议…</div>
-  ) : adviceError ? (
-    <div className="text-rose-600 text-sm">生成失败：{adviceError}</div>
-  ) : advice ? (
-    // 把大模型返回的文本拆成列表（去掉开头的序号符号）
-    <ol className="list-decimal pl-5 space-y-2 text-slate-700 text-sm">
-      {advice.split(/\n+/).filter(Boolean).map((line, i) => (
-        <li key={i}>{line.replace(/^\\s*\\d+[\\.|、\\)]\\s*/, "")}</li>
-      ))}
-    </ol>
+  {advLoading ? (
+    <div className="text-sm text-slate-500">生成中…</div>
   ) : (
-    <div className="text-slate-500 text-sm">点击“手动生成”获取今日建议。</div>
+    advice ? (
+      <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{advice}</div>
+    ) : (
+      <div className="text-sm text-slate-500">
+        填写 API 地址与 API 秘钥后自动生成（或点击下方按钮）。
+      </div>
+    )
   )}
 
-  <div className="mt-3 flex items-center gap-3">
+  <div className="pt-2">
     <button
-      onClick={generateAdvice}
-      className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50 disabled:opacity-60"
-      disabled={adviceLoading}
+      onClick={() => runAdvice()}
+      className="rounded-xl px-3 py-1.5 text-sm border bg-white hover:bg-slate-50 disabled:opacity-60"
+      disabled={advLoading}
     >
       手动生成
     </button>
-    <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-      <input type="checkbox" checked={adviceAuto} onChange={(e) => setAdviceAuto(e.target.checked)} />
-      跟随星座/日期自动更新
-    </label>
   </div>
 </Card>
     </div>
