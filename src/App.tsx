@@ -221,32 +221,17 @@ export default function StarfortuneFullPreview() {
   }, [starData, starTab, dateTimeLocal]);
 
   // URL helpers
-  const [dateTimeLocal, setDateTimeLocal] = useState(() => getLS("date_time", formatLocal(new Date())));
-  const [sign, setSign] = useState(() => {
-    const v = getLS("star_sign", "capricorn");
-    // 兼容老数据：如果是中文名，映射到英文
-    if (!EN_SIGNS.includes(v)) return ZH_TO_EN[v as any] ?? "capricorn";
-    return v;
-  });
-  const [starTab, setStarTab] = useState<"day" | "tomorrow" | "week" | "month" | "year">("day");
-  const [expandAlmanac, setExpandAlmanac] = useState(false);
-  const [showStarDetail, setShowStarDetail] = useState(false);
-
-  useEffect(() => setLS("date_time", dateTimeLocal), [dateTimeLocal]);
-  useEffect(() => setLS("star_sign", sign), [sign]);
-
-  // 首次加载：强制使用系统本地时间，覆盖可能的旧 UTC 值
-  useEffect(() => {
-    const now = formatLocal(new Date());
-    setDateTimeLocal(now);
-    setLS("date_time", now);
-  }, []);
-
-  // 午夜自动刷新
-  useEffect(() => {
-    const t = setTimeout(() => setDateTimeLocal(formatLocal(new Date())), msToNextMidnight());
-    return () => clearTimeout(t);
-  }, []);
+function toApiDateTime(localDT?: string | Date) {
+  if (localDT instanceof Date) {
+    const y = localDT.getFullYear(), m = pad2(localDT.getMonth() + 1), day = pad2(localDT.getDate());
+    const h = pad2(localDT.getHours()), mi = pad2(localDT.getMinutes());
+    return `${y}-${m}-${day} ${h}:${mi}:00`;
+  }
+  const s = (typeof localDT === "string" && localDT) ? localDT : toLocalInputValue(new Date());
+  const [ymd, hm = "00:00"] = s.split("T");
+  const [h = "00", mi = "00"] = hm.split(":");
+  return `${ymd} ${h}:${mi}:00`; // 补齐秒
+}
 
   const buildUrl = (base: string, path: string, params: Record<string, string>) => {
     const u = new URL(path, base.endsWith("/") ? base : base + "/");
