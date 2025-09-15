@@ -619,19 +619,39 @@ export default function App() {
       </Card>
 
       {/* OpenAI · 今日建议（占位） */}
-      <Card>
-        <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
-        <ol className="list-decimal pl-5 space-y-2 text-slate-700 text-sm">
-          <li>适合整理财务及文书事务，可安排精简计划或整理合同文件，今日运佳。</li>
-          <li>工作中主动沟通问题，明确目标与分工，推动项目进度效率更高。</li>
-          <li>与伴侣或重要协作者约定解决冲突方案，保持对关键话题的理性聚焦。</li>
-        </ol>
-        <div className="mt-3">
-          <button className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50">手动生成</button>
-        </div>
-      </Card>
-    </div>
-  );
+      {/* OpenAI · 今日建议 */}
+<Card>
+  <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
+
+  {adviceLoading ? (
+    <div className="text-slate-500 text-sm">正在生成建议…</div>
+  ) : adviceError ? (
+    <div className="text-rose-600 text-sm">生成失败：{adviceError}</div>
+  ) : advice ? (
+    // 把大模型返回的文本拆成列表（去掉开头的序号符号）
+    <ol className="list-decimal pl-5 space-y-2 text-slate-700 text-sm">
+      {advice.split(/\n+/).filter(Boolean).map((line, i) => (
+        <li key={i}>{line.replace(/^\\s*\\d+[\\.|、\\)]\\s*/, "")}</li>
+      ))}
+    </ol>
+  ) : (
+    <div className="text-slate-500 text-sm">点击“手动生成”获取今日建议。</div>
+  )}
+
+  <div className="mt-3 flex items-center gap-3">
+    <button
+      onClick={generateAdvice}
+      className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50 disabled:opacity-60"
+      disabled={adviceLoading}
+    >
+      手动生成
+    </button>
+    <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+      <input type="checkbox" checked={adviceAuto} onChange={(e) => setAdviceAuto(e.target.checked)} />
+      跟随星座/日期自动更新
+    </label>
+  </div>
+</Card>
 
   const SettingsPage = (
     <div className="space-y-6">
