@@ -239,35 +239,70 @@ export default function App() {
   }, [almanacEndpoint, alapiToken, almanacBody]);
 
   // 解析：宜/忌/六曜 + 农历/干支/五行（按你给的字段）
-  const almanacParsed = useMemo(() => {
-    try {
-      const d: any = (almanacData?.data ?? almanacData) || {};
+  // —— 工具：取纯文本
+const asText = (v: any): string | null => {
+  if (v == null) return null;
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string") return v.trim() || null;
+  return null;
+};
 
-      const normList = (v: any): string[] => {
-        if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
-        if (typeof v === "string") {
-          const seps = ["、", " ", "，", ",", " "]; let s = v;
-          for (const c of seps) s = s.split(c).join(" ");
-          return s.split(" ").map(x => x.trim()).filter(Boolean);
+// —— 工具：在任意层级里找 key 命中 /(six[_-]?star|六曜|六耀)/ 的【第一个字符串值】
+const deepFindSixStar = (obj: any): string | null => {
+  const seen = new Set<any>();
+  const re = /(six[_-]?star|六曜|六耀)/i;
+  const dfs = (o: any): string | null => {
+    if (!o || typeof o !== "object" || seen.has(o)) return null;
+    seen.add(o);
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      if (re.test(k)) {
+        const t = asText(v);
+        if (t) return t;                  // 命中
+        if (Array.isArray(v)) {
+          const s = v.find(x => typeof x === "string" && x.trim());
+          if (s) return (s as string).trim();
         }
-        return [];
-      };
+        if (v && typeof v === "object") {
+          const s2 = dfs(v);
+          if (s2) return s2;
+        }
+      }
+    }
+    // 继续深搜子对象
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      if (v && typeof v === "object") {
+        const s = dfs(v);
+        if (s) return s;
+      }
+    }
+    return null;
+  };
+  return dfs(obj);
+};
 
-      const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
-      const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
-
-      // 六曜：多字段兼容 + 裁掉“·”后的注释
-      const coerceLiuYao = (v: any): string | null => {
-        if (!v) return null;
-        if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
-        if (typeof v === "string") return (v.split("·")[0].trim() || null);
-        return null;
-      };
-      const liuyue =
-        coerceLiuYao(
-          d.liuyao ?? d.liu_yao ?? d.sixyao ?? d.six_yao ??
-          d.rokuyo ?? d.youyin ?? d.youyin_cn ?? d.liuyin ?? d.liuri ?? d.riyao
-        ) || null;
+// —— 六曜：只认 six_star（兼容写法 + 深搜）
+const six_star = (() => {
+  const direct =
+    asText(d.six_star) ??
+    asText(d.sixStar) ??
+    asText(d.sixstar);
+  if (direct) return direct;
+  const deep = deepFindSixStar(d);
+  return deep || null;
+})();
+  
+// 六曜临时自检
+  useEffect(() => {
+  if (almanacData?.data) {
+    console.log("ALMANAC six_star candidates:", {
+      six_star: almanacData.data.six_star,
+      sixStar: (almanacData.data as any).sixStar,
+      sixstar: (almanacData.data as any).sixstar,
+    });
+  }
+}, [almanacData]);
 
       // 农历（你给的字段：*_chinese）
       const nongli = (() => {
@@ -307,7 +342,7 @@ export default function App() {
       );
 
       return {
-        yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
+        yiList, jiList, yCount: yiList.length, jCount: jiList.length, six_star,
         caishen: d.caishen, caishen_desc: d.caishen_desc,
         fushen: d.fushen, fushen_desc: d.fushen_desc,
         xishen: d.xishen, xishen_desc: d.xishen_desc,
@@ -550,7 +585,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           {/* 六曜 */}
           <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
             <div className="text-slate-700/80 text-sm">六曜</div>
-            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.six_star}</div>
+            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.six_star || "—"}</div>
           </div>
 
           {/* 宜 */}
