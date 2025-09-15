@@ -380,35 +380,59 @@ export default function App() {
   const [starData, setStarData] = useState<any>(null);
   const starAbortRef = useRef<AbortController | null>(null);
 
-  const fetchStar = async (starOverride?: string, typeOverride?: string) => {
-    try {
-      if (starAbortRef.current) starAbortRef.current.abort();
-      const controller = new AbortController();
-      starAbortRef.current = controller;
+const fetchStar = async (starOverride?: string, typeOverride?: string) => {
+  try {
+    if (starAbortRef.current) starAbortRef.current.abort();
+    const controller = new AbortController();
+    starAbortRef.current = controller;
 
-      setStarLoading(true); setStarError(null);
+    setStarLoading(true); 
+    setStarError(null);
 
-      const u = new URL("/api/star", window.location.origin); // 走你的 Vercel/Electron 本地 API
-      const starRaw = starOverride ?? sign;
-      const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
-      u.searchParams.set("star", starParam);
-      u.searchParams.set("type", typeOverride ?? "all");
-      u.searchParams.set("date", toApiDateTime(dateTimeLocal)); // 保持不变
-      u.searchParams.set("_ts", Date.now().toString());
+    const starRaw = starOverride ?? sign;
+    const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
+    const typeParam = typeOverride ?? "all";
+    const dateParam = toApiDateTime(dateTimeLocal);
 
-      const res = await fetch(u.toString(), { cache: "no-store", signal: controller.signal });
+    // ① 优先走同源函数 /api/star（Vercel/Electron）
+    const u1 = new URL("/api/star", window.location.origin);
+    u1.searchParams.set("star", starParam);
+    u1.searchParams.set("type", typeParam);
+    u1.searchParams.set("date", dateParam);
+    // ✅ 关键：把 token 一并传过去（兼容你的 star.ts）
+    if (alapiToken) u1.searchParams.set("token", alapiToken);
+    u1.searchParams.set("_ts", Date.now().toString());
+
+    let res = await fetch(u1.toString(), { cache: "no-store", signal: controller.signal });
+    if (!res.ok) {
+      // ② 回退到直连 ALAPI（以防本地没有 /api/star 路由）
+      const base = alapiBase.endsWith("/") ? alapiBase : alapiBase + "/";
+      const u2 = new URL("/api/star", base);
+      u2.searchParams.set("star", starParam);
+      u2.searchParams.set("type", typeParam);
+      u2.searchParams.set("date", dateParam);
+      if (alapiToken) u2.searchParams.set("token", alapiToken);
+      u2.searchParams.set("_ts", Date.now().toString());
+      res = await fetch(u2.toString(), { cache: "no-store", signal: controller.signal });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const json = await res.json();
-      setStarData(json);
-    } catch (e: any) {
-      if (e?.name === "AbortError") return;
-      setStarError(e?.message || String(e));
-      setStarData(null);
-    } finally {
-      setStarLoading(false);
     }
-  };
-  useEffect(() => { fetchStar(); }, [sign, dateTimeLocal]);
+
+    const json = await res.json();
+    setStarData(json);
+  } catch (e: any) {
+    if (e?.name === "AbortError") return;
+    setStarError(e?.message || String(e));
+    setStarData(null);
+  } finally {
+    setStarLoading(false);
+  }
+};
+
+// —— 覆盖原 useEffect（增加 token/base 依赖）——
+useEffect(() => { 
+  fetchStar(); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [sign, dateTimeLocal, alapiToken, alapiBase]);
 
   const sliceByTab = (raw: any, tab: string) => {
     const d: any = (raw?.data ?? raw) || {};
