@@ -536,7 +536,7 @@ useEffect(() => {
     ].filter(Boolean).join("，");
     const yi = (almanacParsed?.yiList || []).slice(0, 10).join("、") || "无";
     const ji = (almanacParsed?.jiList || []).slice(0, 10).join("、") || "无";
-    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条不超过30字。
+    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条100字。
 日期：${displayDate}
 星座：${signZh} (${sign})，类型：${tabZh[starTab]}
 星座概览：${summary}
@@ -558,7 +558,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         body: JSON.stringify({
           model: openAIModel, temperature: 0.7, stream: false,
           messages: [
-            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过30字。" },
+            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过100字。" },
             { role: "user", content: advicePrompt },
           ],
         }),
