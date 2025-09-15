@@ -226,81 +226,87 @@ export default function App() {
   };
   // 只随 URL 拉取（展开不会再请求）
   useEffect(() => { fetchAlmanac(); }, [almanacUrl]);
+const almanacParsed = useMemo(() => {
+  try {
+    const d: any = (almanacData?.data ?? almanacData) || {};
 
-  // ★ 修复：六曜显示“—”；同时稳健解析 农历/干支/五行
-  const almanacParsed = useMemo(() => {
-    try {
-      const d: any = (almanacData?.data ?? almanacData) || {};
+    const normList = (v: any): string[] => {
+      if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
+      if (typeof v === "string") {
+        const seps = ["、", "，", ",", " "]; let s = v;
+        for (const c of seps) s = s.split(c).join(" ");
+        return s.split(" ").map(x => x.trim()).filter(Boolean);
+      }
+      return [];
+    };
 
-      const normList = (v: any): string[] => {
-        if (Array.isArray(v)) return v.filter(Boolean);
-        if (typeof v === "string") {
-          const seps = ["、", "，", ",", " "]; let s = v;
-          for (const c of seps) s = s.split(c).join(" ");
-          return s.split(" ").map(x => x.trim()).filter(Boolean);
-        }
-        return [];
-      };
-      const pickText = (...keys: string[]) => {
-        for (const k of keys) {
-          const v = d?.[k];
-          if (typeof v === "string" && v.trim()) return v.trim();
-        }
-        return null;
-      };
+    const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
+    const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
 
-      const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
-      const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+    // —— 六曜（保留你现有的多字段兜底）——
+    const coerceLiuYao = (v: any): string | null => {
+      if (!v) return null;
+      if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
+      if (typeof v === "string") return (v.split("·")[0].trim() || null);
+      return null;
+    };
+    const liuyue =
+      coerceLiuYao(
+        d.liuyao ?? d.liu_yao ?? d.sixyao ?? d.six_yao ??
+        d.rokuyo ?? d.youyin ?? d.youyin_cn ?? d.liuyin ?? d.liuri ?? d.riyao
+      ) || null;
 
-      // 六曜多字段兼容
-      const coerceLiuYao = (v: any): string | null => {
-        if (!v) return null;
-        if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
-        if (typeof v === "string") return (v.split("·")[0].trim() || null);
-        return null;
-      };
-      const liuyue =
-        coerceLiuYao(
-          pickText(
-            "liuyao", "liu_yao", "sixyao", "six_yao",
-            "rokuyo",
-            "youyin", "youyin_cn", "liuyin",
-            "liuri", "riyao"
-          )
-        ) || null;
+    // —— 农历：优先用 *_chinese 组合，缺省再回退旧键 —— 
+    const nongli = (() => {
+      const y = (d.lunar_year_chinese ?? d.lunar_year_cn ?? d.lunar_year) as string | undefined;
+      const m = (d.lunar_month_chinese ?? d.lunar_month_cn ?? d.lunar_month) as string | undefined;
+      const day = (d.lunar_day_chinese ?? d.lunar_day_cn ?? d.lunar_day) as string | undefined;
+      const y2 = (typeof y === "string" && y.trim()) ? y.trim() : "";
+      const m2 = (typeof m === "string" && m.trim()) ? m.trim() : "";
+      const d2 = (typeof day === "string" && day.trim()) ? day.trim() : "";
+      if (y2 || m2 || d2) return `${y2}${y2 ? "年" : ""}${m2}${m2 ? "月" : ""}${d2}`;
+      // 旧字段兜底
+      const legacy = [d.lunar, d.nongli, d.lunar_calendar, d.lunar_text, d.lunar_cn].find(
+        v => typeof v === "string" && v.trim()
+      );
+      return (legacy as string | undefined)?.trim() ?? null;
+    })();
 
-      // 农历/干支/五行多字段兜底
-      const nongliDirect = pickText("lunar", "nongli", "lunar_calendar", "nl", "lunar_cn", "lunar_text");
-      const nongliComposed = (() => {
-        const y = pickText("lunar_year_cn", "year_cn");
-        const m = pickText("lunar_month_cn", "month_cn");
-        const day = pickText("lunar_day_cn", "day_cn");
-        if (y || m || day) return `${y ?? ""}${y ? "年" : ""}${m ?? ""}${m ? "月" : ""}${day ?? ""}`.trim();
-        return null;
-      })();
-      const nongli = nongliDirect ?? nongliComposed ?? null;
+    // —— 干支：按 年/月/日 拼接，缺省再回退旧键 —— 
+    const ganzhi = (() => {
+      const y = (d.ganzhi_year as string) || "";
+      const m = (d.ganzhi_month as string) || "";
+      const day = (d.ganzhi_day as string) || "";
+      const parts = [y, m, day].map(s => (typeof s === "string" ? s.trim() : "")).filter(Boolean);
+      if (parts.length) return parts.join(" ");
+      const legacy = [d.ganzhi, d.gz, d.tiangan_dizhi].find(v => typeof v === "string" && v.trim());
+      return (legacy as string | undefined)?.trim() ?? null;
+    })();
 
-      const ganzhiDirect = pickText("ganzhi", "gz", "tiangan_dizhi", "gan_zhi", "tgdz");
-      const gzYear = pickText("ganzhi_year", "gan_zhi_year", "tgdz_year");
-      const gzMonth = pickText("ganzhi_month", "gan_zhi_month", "tgdz_month");
-      const gzDay = pickText("ganzhi_day", "gan_zhi_day", "tgdz_day");
-      const ganzhi = ganzhiDirect ?? ([gzYear, gzMonth, gzDay].filter(Boolean).join(" ") || null);
+    // —— 五行：优先“日五行”，缺省回退年/月/时或旧键 —— 
+    const wuxing = (
+      (typeof d.wuxing_day === "string" && d.wuxing_day.trim()) ? d.wuxing_day.trim() :
+      (typeof d.wuxing_year === "string" && d.wuxing_year.trim()) ? d.wuxing_year.trim() :
+      (typeof d.wuxing_month === "string" && d.wuxing_month.trim()) ? d.wuxing_month.trim() :
+      (typeof d.wuxing_hour === "string" && d.wuxing_hour.trim()) ? d.wuxing_hour.trim() :
+      (typeof d.wuxing === "string" && d.wuxing.trim()) ? d.wuxing.trim() :
+      (typeof d.five_elements === "string" && d.five_elements.trim()) ? d.five_elements.trim() :
+      null
+    );
 
-      const wuxing = pickText("wuxing", "five_elements", "wuxing_text", "wx", "five_element", "nayin", "na_yin");
-
-      return {
-        yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
-        caishen: d.caishen, caishen_desc: d.caishen_desc,
-        fushen: d.fushen, fushen_desc: d.fushen_desc,
-        xishen: d.xishen, xishen_desc: d.xishen_desc,
-        taishen: d.taishen, shou: d.shou,
-        xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
-        nongli, ganzhi, wuxing,
-      };
-    } catch {
-      return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "", nongli: null, ganzhi: null, wuxing: null } as any;
-    }
-  }, [almanacData]);
+    return {
+      yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
+      caishen: d.caishen, caishen_desc: d.caishen_desc,
+      fushen: d.fushen, fushen_desc: d.fushen_desc,
+      xishen: d.xishen, xishen_desc: d.xishen_desc,
+      taishen: d.taishen, shou: d.shou,
+      xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
+      nongli, ganzhi, wuxing,
+    };
+  } catch {
+    return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "", nongli: null, ganzhi: null, wuxing: null } as any;
+  }
+}, [almanacData]);
 
   /* ======== Star ======== */
   const [starLoading, setStarLoading] = useState(false);
