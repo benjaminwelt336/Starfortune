@@ -493,9 +493,6 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
             onChange={(e) => setDateTimeLocal(e.target.value)}
             className="rounded-xl border px-3 py-2 bg-white"
           />
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700">
-            信息以系统时间为准
-          </span>
           {almanacParsed?.nongli && (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700">
               农历：{almanacParsed.nongli}
