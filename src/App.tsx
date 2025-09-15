@@ -193,16 +193,14 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /* ======== Almanac ======== */
-  const buildUrl = (base: string, path: string, params: Record<string, string>) => {
-    const u = new URL(path, base.endsWith("/") ? base : base + "/");
-    Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
-    return u.toString();
-  };
-  // 按你现状：依然用当前输入框的“日期”
-  const almanacUrl = useMemo(
-    () => buildUrl(alapiBase, "/api/lunar", { token: alapiToken || "", date: toApiDateTime(dateTimeLocal) }),
-    [alapiBase, alapiToken, dateTimeLocal]
+  /* ======== Almanac（POST + header token + JSON body） ======== */
+  const almanacEndpoint = useMemo(
+    () => `${alapiBase.replace(/\/$/, "")}/api/lunar`,
+    [alapiBase]
+  );
+  const almanacBody = useMemo(
+    () => ({ date: toApiDateTime(dateTimeLocal) }),
+    [dateTimeLocal]
   );
 
   const [almanacLoading, setAlmanacLoading] = useState(false);
@@ -213,7 +211,16 @@ export default function App() {
     try {
       setAlmanacLoading(true);
       setAlmanacError(null);
-      const res = await fetch(almanacUrl);
+
+      const res = await fetch(almanacEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          token: alapiToken || "",
+        },
+        body: JSON.stringify(almanacBody),
+      });
+
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const json = await res.json();
       setAlmanacData(json);
@@ -224,97 +231,101 @@ export default function App() {
       setAlmanacLoading(false);
     }
   };
-  // 只随 URL 拉取（展开不会再请求）
-  useEffect(() => { fetchAlmanac(); }, [almanacUrl]);
-const almanacParsed = useMemo(() => {
-  try {
-    const d: any = (almanacData?.data ?? almanacData) || {};
 
-    const normList = (v: any): string[] => {
-      if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
-      if (typeof v === "string") {
-        const seps = ["、", "，", ",", " "]; let s = v;
-        for (const c of seps) s = s.split(c).join(" ");
-        return s.split(" ").map(x => x.trim()).filter(Boolean);
-      }
-      return [];
-    };
+  // 仅在 基址/Token/日期 变化时重拉（展开不再发新请求）
+  useEffect(() => {
+    fetchAlmanac();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [almanacEndpoint, alapiToken, almanacBody]);
 
-    const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
-    const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+  // 解析：宜/忌/六曜 + 农历/干支/五行（按你给的字段）
+  const almanacParsed = useMemo(() => {
+    try {
+      const d: any = (almanacData?.data ?? almanacData) || {};
 
-    // —— 六曜（保留你现有的多字段兜底）——
-    const coerceLiuYao = (v: any): string | null => {
-      if (!v) return null;
-      if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
-      if (typeof v === "string") return (v.split("·")[0].trim() || null);
-      return null;
-    };
-    const liuyue =
-      coerceLiuYao(
-        d.liuyao ?? d.liu_yao ?? d.sixyao ?? d.six_yao ??
-        d.rokuyo ?? d.youyin ?? d.youyin_cn ?? d.liuyin ?? d.liuri ?? d.riyao
-      ) || null;
+      const normList = (v: any): string[] => {
+        if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
+        if (typeof v === "string") {
+          const seps = ["、", " ", "，", ",", " "]; let s = v;
+          for (const c of seps) s = s.split(c).join(" ");
+          return s.split(" ").map(x => x.trim()).filter(Boolean);
+        }
+        return [];
+      };
 
-    // —— 农历：优先用 *_chinese 组合，缺省再回退旧键 —— 
-    const nongli = (() => {
-      const y = (d.lunar_year_chinese ?? d.lunar_year_cn ?? d.lunar_year) as string | undefined;
-      const m = (d.lunar_month_chinese ?? d.lunar_month_cn ?? d.lunar_month) as string | undefined;
-      const day = (d.lunar_day_chinese ?? d.lunar_day_cn ?? d.lunar_day) as string | undefined;
-      const y2 = (typeof y === "string" && y.trim()) ? y.trim() : "";
-      const m2 = (typeof m === "string" && m.trim()) ? m.trim() : "";
-      const d2 = (typeof day === "string" && day.trim()) ? day.trim() : "";
-      if (y2 || m2 || d2) return `${y2}${y2 ? "年" : ""}${m2}${m2 ? "月" : ""}${d2}`;
-      // 旧字段兜底
-      const legacy = [d.lunar, d.nongli, d.lunar_calendar, d.lunar_text, d.lunar_cn].find(
-        v => typeof v === "string" && v.trim()
+      const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
+      const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+
+      // 六曜：多字段兼容 + 裁掉“·”后的注释
+      const coerceLiuYao = (v: any): string | null => {
+        if (!v) return null;
+        if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
+        if (typeof v === "string") return (v.split("·")[0].trim() || null);
+        return null;
+      };
+      const liuyue =
+        coerceLiuYao(
+          d.liuyao ?? d.liu_yao ?? d.sixyao ?? d.six_yao ??
+          d.rokuyo ?? d.youyin ?? d.youyin_cn ?? d.liuyin ?? d.liuri ?? d.riyao
+        ) || null;
+
+      // 农历（你给的字段：*_chinese）
+      const nongli = (() => {
+        const y = (d.lunar_year_chinese ?? d.lunar_year_cn ?? d.lunar_year) as string | undefined;
+        const m = (d.lunar_month_chinese ?? d.lunar_month_cn ?? d.lunar_month) as string | undefined;
+        const day = (d.lunar_day_chinese ?? d.lunar_day_cn ?? d.lunar_day) as string | undefined;
+        const y2 = (typeof y === "string" && y.trim()) ? y.trim() : "";
+        const m2 = (typeof m === "string" && m.trim()) ? m.trim() : "";
+        const d2 = (typeof day === "string" && day.trim()) ? day.trim() : "";
+        if (y2 || m2 || d2) return `${y2}${y2 ? "年" : ""}${m2}${m2 ? "月" : ""}${d2}`;
+        const legacy = [d.lunar, d.nongli, d.lunar_calendar, d.lunar_text, d.lunar_cn].find(
+          v => typeof v === "string" && v.trim()
+        );
+        return (legacy as string | undefined)?.trim() ?? null;
+      })();
+
+      // 干支（你给的字段：ganzhi_year/month/day）
+      const ganzhi = (() => {
+        const y = (d.ganzhi_year as string) || "";
+        const m = (d.ganzhi_month as string) || "";
+        const day = (d.ganzhi_day as string) || "";
+        const parts = [y, m, day].map(s => (typeof s === "string" ? s.trim() : "")).filter(Boolean);
+        if (parts.length) return parts.join(" ");
+        const legacy = [d.ganzhi, d.gz, d.tiangan_dizhi].find(v => typeof v === "string" && v.trim());
+        return (legacy as string | undefined)?.trim() ?? null;
+      })();
+
+      // 五行（优先“日五行”，再用年/月/时）
+      const wuxing = (
+        (typeof d.wuxing_day === "string" && d.wuxing_day.trim()) ? d.wuxing_day.trim() :
+        (typeof d.wuxing_year === "string" && d.wuxing_year.trim()) ? d.wuxing_year.trim() :
+        (typeof d.wuxing_month === "string" && d.wuxing_month.trim()) ? d.wuxing_month.trim() :
+        (typeof d.wuxing_hour === "string" && d.wuxing_hour.trim()) ? d.wuxing_hour.trim() :
+        (typeof d.wuxing === "string" && d.wuxing.trim()) ? d.wuxing.trim() :
+        (typeof d.five_elements === "string" && d.five_elements.trim()) ? d.five_elements.trim() :
+        null
       );
-      return (legacy as string | undefined)?.trim() ?? null;
-    })();
 
-    // —— 干支：按 年/月/日 拼接，缺省再回退旧键 —— 
-    const ganzhi = (() => {
-      const y = (d.ganzhi_year as string) || "";
-      const m = (d.ganzhi_month as string) || "";
-      const day = (d.ganzhi_day as string) || "";
-      const parts = [y, m, day].map(s => (typeof s === "string" ? s.trim() : "")).filter(Boolean);
-      if (parts.length) return parts.join(" ");
-      const legacy = [d.ganzhi, d.gz, d.tiangan_dizhi].find(v => typeof v === "string" && v.trim());
-      return (legacy as string | undefined)?.trim() ?? null;
-    })();
+      return {
+        yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
+        caishen: d.caishen, caishen_desc: d.caishen_desc,
+        fushen: d.fushen, fushen_desc: d.fushen_desc,
+        xishen: d.xishen, xishen_desc: d.xishen_desc,
+        taishen: d.taishen, shou: d.shou,
+        xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
+        nongli, ganzhi, wuxing,
+      };
+    } catch {
+      return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "", nongli: null, ganzhi: null, wuxing: null } as any;
+    }
+  }, [almanacData]);
 
-    // —— 五行：优先“日五行”，缺省回退年/月/时或旧键 —— 
-    const wuxing = (
-      (typeof d.wuxing_day === "string" && d.wuxing_day.trim()) ? d.wuxing_day.trim() :
-      (typeof d.wuxing_year === "string" && d.wuxing_year.trim()) ? d.wuxing_year.trim() :
-      (typeof d.wuxing_month === "string" && d.wuxing_month.trim()) ? d.wuxing_month.trim() :
-      (typeof d.wuxing_hour === "string" && d.wuxing_hour.trim()) ? d.wuxing_hour.trim() :
-      (typeof d.wuxing === "string" && d.wuxing.trim()) ? d.wuxing.trim() :
-      (typeof d.five_elements === "string" && d.five_elements.trim()) ? d.five_elements.trim() :
-      null
-    );
-
-    return {
-      yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
-      caishen: d.caishen, caishen_desc: d.caishen_desc,
-      fushen: d.fushen, fushen_desc: d.fushen_desc,
-      xishen: d.xishen, xishen_desc: d.xishen_desc,
-      taishen: d.taishen, shou: d.shou,
-      xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
-      nongli, ganzhi, wuxing,
-    };
-  } catch {
-    return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "", nongli: null, ganzhi: null, wuxing: null } as any;
-  }
-}, [almanacData]);
-
-  /* ======== Star ======== */
+  /* ======== Star（保持你当前逻辑不变） ======== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
   const starAbortRef = useRef<AbortController | null>(null);
 
-  // ⭐️ 保持现状：仍使用 dateTimeLocal 作为请求日期
   const fetchStar = async (starOverride?: string, typeOverride?: string) => {
     try {
       if (starAbortRef.current) starAbortRef.current.abort();
@@ -329,7 +340,7 @@ const almanacParsed = useMemo(() => {
       const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
       u.searchParams.set("star", starParam);
       u.searchParams.set("type", typeOverride ?? "all");
-      u.searchParams.set("date", toApiDateTime(dateTimeLocal)); // ← 保持不变
+      u.searchParams.set("date", toApiDateTime(dateTimeLocal)); // 保持不变
       u.searchParams.set("_ts", Date.now().toString());
 
       const res = await fetch(u.toString(), { cache: "no-store", signal: controller.signal });
