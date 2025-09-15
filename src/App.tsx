@@ -292,17 +292,6 @@ const six_star = (() => {
   const deep = deepFindSixStar(d);
   return deep || null;
 })();
-  
-// 六曜临时自检
-  useEffect(() => {
-  if (almanacData?.data) {
-    console.log("ALMANAC six_star candidates:", {
-      six_star: almanacData.data.six_star,
-      sixStar: (almanacData.data as any).sixStar,
-      sixstar: (almanacData.data as any).sixstar,
-    });
-  }
-}, [almanacData]);
 
       // 农历（你给的字段：*_chinese）
       const nongli = (() => {
