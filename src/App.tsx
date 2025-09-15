@@ -409,6 +409,75 @@ export default function App() {
   }, [starData, starTab, dateTimeLocal]);
 
   /** =========================================
+   *  今日建议（AI） —— 采用你给的三段式渲染
+   *  =======================================*/
+  const [advLoading, setAdvLoading] = useState(false);
+  const [advice, setAdvice] = useState<string>("");
+
+  const advicePrompt = useMemo(() => {
+    const signZh = (SIGNS.find(s => s.value === sign)?.label) || sign;
+    const tabZh: Record<string, string> = { day: "今日", tomorrow: "明日", week: "本周", month: "本月", year: "全年" };
+    const summary = starSummaryFromApi || "（暂无概览）";
+    const scoresStr = (starScores || []).map(s => `${s.key}${s.val}%`).join("，");
+    const lucky = [
+      luckyBits.star ? `幸运星：${luckyBits.star}` : null,
+      luckyBits.color ? `幸运色：${luckyBits.color}` : null,
+      luckyBits.number ? `幸运数：${luckyBits.number}` : null,
+    ].filter(Boolean).join("，");
+    const yi = (almanacParsed?.yiList || []).slice(0, 10).join("、") || "无";
+    const ji = (almanacParsed?.jiList || []).slice(0, 10).join("、") || "无";
+    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条不超过30字。
+日期：${displayDate}
+星座：${signZh} (${sign})，类型：${tabZh[starTab]}
+星座概览：${summary}
+评分：${scoresStr}
+${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
+黄历忌：${ji}`;
+  }, [displayDate, sign, starTab, starSummaryFromApi, starScores, luckyBits, almanacParsed]);
+
+  async function runAdvice() {
+    try {
+      setAdvLoading(true);
+      if (!aiBase || !openAIKey || !openAIModel) {
+        setAdvice("请先在设置页填写 API 地址、秘钥和模型。");
+        return;
+      }
+      const res = await fetch(aiBase, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openAIKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: openAIModel,
+          temperature: 0.7,
+          stream: false,
+          messages: [
+            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过30字。" },
+            { role: "user", content: advicePrompt },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const data = await res.json();
+      const txt = data?.choices?.[0]?.message?.content?.trim() || "";
+      setAdvice(txt || "（无内容返回）");
+    } catch (e: any) {
+      setAdvice(`生成失败：${e?.message || String(e)}`);
+    } finally {
+      setAdvLoading(false);
+    }
+  }
+
+  // 自动生成：当你已填写 API 配置，且星座/日期/切片更新时触发
+  useEffect(() => {
+    if (!aiBase || !openAIKey || !openAIModel) return;
+    if (starLoading || almanacLoading) return;
+    if (starData || almanacData) runAdvice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayDate, sign, starTab, starData, almanacData, starLoading, almanacLoading, aiBase, openAIKey, openAIModel]);
+
+  /** =========================================
    *  UI 结构
    *  =======================================*/
   const Home = (
@@ -424,7 +493,7 @@ export default function App() {
             onChange={(e) => setDateTimeLocal(e.target.value)}
             className="rounded-xl border px-3 py-2 bg-white"
           />
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700">
             信息以系统时间为准
           </span>
           {almanacParsed?.nongli && (
@@ -587,7 +656,7 @@ export default function App() {
                       )}
                       {starSlice?.love_text && (
                         <div className="mb-4">
-                          <div className="flex items-center gap-2 font-medium text-slate-800">
+                          <div className="flex items中心 gap-2 font-medium text-slate-800">
                             <IconCmp Comp={Heart} className="w-4 h-4" /> 爱情
                           </div>
                           <p className="mt-1">{starSlice.love_text}</p>
@@ -618,33 +687,24 @@ export default function App() {
         </div>
       </Card>
 
-      {/* OpenAI · 今日建议（占位） */}
-      {/* OpenAI · 今日建议 */}
+      {/* OpenAI · 今日建议（采用你给的三段式写法） */}
       <Card>
-      <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
-
-  {advLoading ? (
-    <div className="text-sm text-slate-500">生成中…</div>
-  ) : (
-    advice ? (
-      <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{advice}</div>
-    ) : (
-      <div className="text-sm text-slate-500">
-        填写 API 地址与 API 秘钥后自动生成（或点击下方按钮）。
-      </div>
-    )
-  )}
-
-  <div className="pt-2">
-    <button
-      onClick={() => runAdvice()}
-      className="rounded-xl px-3 py-1.5 text-sm border bg-white hover:bg-slate-50 disabled:opacity-60"
-      disabled={advLoading}
-    >
-      手动生成
-    </button>
-  </div>
-</Card>
+        <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
+        {advLoading ? (
+          <div className="text-sm text-slate-500">生成中…</div>
+        ) : (
+          advice ? (
+            <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{advice}</div>
+          ) : (
+            <div className="text-sm text-slate-500">填写 API 地址与 API 秘钥后自动生成（或点击下方按钮）。</div>
+          )
+        )}
+        <div className="pt-2">
+          <button onClick={()=>runAdvice()} className="rounded-xl px-3 py-1.5 text-sm border bg-white hover:bg-slate-50 disabled:opacity-60" disabled={advLoading}>
+            手动生成
+          </button>
+        </div>
+      </Card>
     </div>
   );
 
@@ -675,7 +735,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowAlapiToken((s) => !s)}
-                className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50"
+                className="rounded-lg border px-2 py-1 text-xs bg白 hover:bg-slate-50"
               >
                 {showAlapiToken ? "隐藏" : "显示"}
               </button>
