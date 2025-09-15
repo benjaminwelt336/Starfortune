@@ -141,7 +141,7 @@ export default function App() {
   /* OpenAI */
   const OFFICIAL = {
     base: "https://api.siliconflow.cn/v1/chat/completions",
-    key: "sk-rxlajixcihcvdqaajdvbkfsblqabesfjxknjztszfdnvkyze",
+    key: "sk-sarbhjodkolnuwdrzfkzkziemxwbvtfocevjwguhwtlyneyh",
     model: "deepseek-ai/DeepSeek-V3.1",
   } as const;
   const [aiMode, setAiMode] = useState<"official" | "custom">(() => (getLS("ai_mode", "official") as any));
@@ -374,65 +374,62 @@ export default function App() {
     }
   }, [almanacData]);
 
-  /* ======== Star（保持你当前逻辑不变，使用 /api/star 代理） ======== */
+  /* ======== Star：补传 token + 回退 + 补依赖 ======== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
   const starAbortRef = useRef<AbortController | null>(null);
 
-const fetchStar = async (starOverride?: string, typeOverride?: string) => {
-  try {
-    if (starAbortRef.current) starAbortRef.current.abort();
-    const controller = new AbortController();
-    starAbortRef.current = controller;
+  const fetchStar = async (starOverride?: string, typeOverride?: string) => {
+    try {
+      if (starAbortRef.current) starAbortRef.current.abort();
+      const controller = new AbortController();
+      starAbortRef.current = controller;
 
-    setStarLoading(true); 
-    setStarError(null);
+      setStarLoading(true);
+      setStarError(null);
 
-    const starRaw = starOverride ?? sign;
-    const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
-    const typeParam = typeOverride ?? "all";
-    const dateParam = toApiDateTime(dateTimeLocal);
+      const starRaw = starOverride ?? sign;
+      const starParam = EN_SIGNS.includes(starRaw) ? starRaw : ZH_TO_EN[starRaw as any] ?? "capricorn";
+      const typeParam = typeOverride ?? "all";
+      const dateParam = toApiDateTime(dateTimeLocal);
 
-    // ① 优先走同源函数 /api/star（Vercel/Electron）
-    const u1 = new URL("/api/star", window.location.origin);
-    u1.searchParams.set("star", starParam);
-    u1.searchParams.set("type", typeParam);
-    u1.searchParams.set("date", dateParam);
-    // ✅ 关键：把 token 一并传过去（兼容你的 star.ts）
-    if (alapiToken) u1.searchParams.set("token", alapiToken);
-    u1.searchParams.set("_ts", Date.now().toString());
+      // ① 优先走同源函数 /api/star（Vercel/Electron）
+      const u1 = new URL("/api/star", window.location.origin);
+      u1.searchParams.set("star", starParam);
+      u1.searchParams.set("type", typeParam);
+      u1.searchParams.set("date", dateParam);
+      if (alapiToken) u1.searchParams.set("token", alapiToken); // 关键：传 token
+      u1.searchParams.set("_ts", Date.now().toString());
 
-    let res = await fetch(u1.toString(), { cache: "no-store", signal: controller.signal });
-    if (!res.ok) {
-      // ② 回退到直连 ALAPI（以防本地没有 /api/star 路由）
-      const base = alapiBase.endsWith("/") ? alapiBase : alapiBase + "/";
-      const u2 = new URL("/api/star", base);
-      u2.searchParams.set("star", starParam);
-      u2.searchParams.set("type", typeParam);
-      u2.searchParams.set("date", dateParam);
-      if (alapiToken) u2.searchParams.set("token", alapiToken);
-      u2.searchParams.set("_ts", Date.now().toString());
-      res = await fetch(u2.toString(), { cache: "no-store", signal: controller.signal });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      let res = await fetch(u1.toString(), { cache: "no-store", signal: controller.signal });
+      if (!res.ok) {
+        // ② 回退到直连 ALAPI（以防本地没有 /api/star 路由）
+        const base = alapiBase.endsWith("/") ? alapiBase : alapiBase + "/";
+        const u2 = new URL("/api/star", base);
+        u2.searchParams.set("star", starParam);
+        u2.searchParams.set("type", typeParam);
+        u2.searchParams.set("date", dateParam);
+        if (alapiToken) u2.searchParams.set("token", alapiToken);
+        u2.searchParams.set("_ts", Date.now().toString());
+        res = await fetch(u2.toString(), { cache: "no-store", signal: controller.signal });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      setStarData(json);
+    } catch (e: any) {
+      if (e?.name === "AbortError") return;
+      setStarError(e?.message || String(e));
+      setStarData(null);
+    } finally {
+      setStarLoading(false);
     }
-
-    const json = await res.json();
-    setStarData(json);
-  } catch (e: any) {
-    if (e?.name === "AbortError") return;
-    setStarError(e?.message || String(e));
-    setStarData(null);
-  } finally {
-    setStarLoading(false);
-  }
-};
-
-// —— 覆盖原 useEffect（增加 token/base 依赖）——
-useEffect(() => { 
-  fetchStar(); 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [sign, dateTimeLocal, alapiToken, alapiBase]);
+  };
+  useEffect(() => {
+    fetchStar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sign, dateTimeLocal, alapiToken, alapiBase]);
 
   const sliceByTab = (raw: any, tab: string) => {
     const d: any = (raw?.data ?? raw) || {};
@@ -536,7 +533,7 @@ useEffect(() => {
     ].filter(Boolean).join("，");
     const yi = (almanacParsed?.yiList || []).slice(0, 10).join("、") || "无";
     const ji = (almanacParsed?.jiList || []).slice(0, 10).join("、") || "无";
-    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条100字。
+    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条不超过30字。
 日期：${displayDate}
 星座：${signZh} (${sign})，类型：${tabZh[starTab]}
 星座概览：${summary}
@@ -558,7 +555,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         body: JSON.stringify({
           model: openAIModel, temperature: 0.7, stream: false,
           messages: [
-            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过100字。" },
+            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过30字。" },
             { role: "user", content: advicePrompt },
           ],
         }),
@@ -834,11 +831,11 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         <div className="mb-3 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
-            官方
+            官方（固定为你的三项配置）
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "custom"} onChange={() => switchMode("custom")} />
-            自定义
+            自定义（会清空三项）
           </label>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
@@ -882,7 +879,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           }}
           className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50"
         >
-          重置数据
+          重置为默认
         </button>
       </div>
     </div>
