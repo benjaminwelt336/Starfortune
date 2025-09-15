@@ -239,35 +239,14 @@ export default function App() {
   }, [almanacEndpoint, alapiToken, almanacBody]);
 
   // 解析：宜/忌/六曜 + 农历/干支/五行（按你给的字段）
-  const almanacParsed = useMemo(() => {
-    try {
-      const d: any = (almanacData?.data ?? almanacData) || {};
-
-      const normList = (v: any): string[] => {
-        if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
-        if (typeof v === "string") {
-          const seps = ["、", " ", "，", ",", " "]; let s = v;
-          for (const c of seps) s = s.split(c).join(" ");
-          return s.split(" ").map(x => x.trim()).filter(Boolean);
-        }
-        return [];
-      };
-
-      const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
-      const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
-
-      // 六曜：多字段兼容 + 裁掉“·”后的注释
-      const coerceLiuYao = (v: any): string | null => {
-        if (!v) return null;
-        if (Array.isArray(v)) return (v[0] ?? "").toString().trim() || null;
-        if (typeof v === "string") return (v.split("·")[0].trim() || null);
-        return null;
-      };
-      const liuyue =
-        coerceLiuYao(
-          d.liuyao ?? d.liu_yao ?? d.sixyao ?? d.six_yao ??
-          d.rokuyo ?? d.youyin ?? d.youyin_cn ?? d.liuyin ?? d.liuri ?? d.riyao
-        ) || null;
+  const six_star = (() => {
+  const s = (typeof d.six_star === "string" && d.six_star.trim())
+    ? d.six_star.trim()
+    : (typeof d.sixstar === "string" && d.sixstar.trim())
+    ? d.sixstar.trim()
+    : "";
+  return s || null;
+})();
 
       // 农历（你给的字段：*_chinese）
       const nongli = (() => {
