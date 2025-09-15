@@ -245,12 +245,6 @@ const coerceLiuYao = (v: any): string | null => {
   if (typeof v === "string") return (v.split("·")[0].trim() || null);
   return null;
 };
-const liuyue =
-  coerceLiuYao(
-    d.six_star ?? d.sixstar ?? d.six_star_cn ?? // ← ✅ 新增：six_star 优先
-    d.liuyao ?? d.liu_yao ?? d.sixyao ?? d.six_yao ??
-    d.rokuyo ?? d.youyin ?? d.youyin_cn ?? d.liuyin ?? d.liuri ?? d.riyao
-  ) || null;
 
       // 农历（你给的字段：*_chinese）
       const nongli = (() => {
