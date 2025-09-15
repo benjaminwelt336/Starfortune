@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Lucide from "lucide-react";
 
-/** =========================================
- *  小工具
- *  =======================================*/
+/* ===================== 小工具 ===================== */
 const getLS = (k: string, d: string) => { try { const v = localStorage.getItem(k); return v ?? d; } catch { return d; } };
 const setLS = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch {} };
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
 // 以本地时区格式化成 <input type="datetime-local"> 的值
 const formatLocal = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -29,9 +28,7 @@ function msToNextMidnight(from = new Date()) {
   return next.getTime() - from.getTime();
 }
 
-/** =========================================
- *  图标（防止 undefined 导致 React #130）
- *  =======================================*/
+/* ===================== 图标安全封装 ===================== */
 const IconCmp = ({ Comp, className = "" }: { Comp: any; className?: string }) => {
   if (!Comp) return null;
   const C = Comp as any;
@@ -51,9 +48,7 @@ const {
   CalendarDays, Sun, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2,
 } = (Lucide as any);
 
-/** =========================================
- *  UI 基元
- *  =======================================*/
+/* ===================== UI 基元 ===================== */
 const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
   <div className="flex items-center justify-between mb-4">
     <div className="flex items-center gap-2 text-slate-800">
@@ -71,9 +66,7 @@ const Card = ({ children }: { children: React.ReactNode }) => (
   <div className="rounded-2xl border bg-white/80 shadow-sm backdrop-blur p-4 md:p-6">{children}</div>
 );
 
-/** =========================================
- *  星座选择
- *  =======================================*/
+/* ===================== 星座选择 ===================== */
 const SIGNS: { value: string; label: string; symbol: string }[] = [
   { value: "aries", label: "白羊座", symbol: "♈" },
   { value: "taurus", label: "金牛座", symbol: "♉" },
@@ -137,14 +130,12 @@ const SignSelect = ({ value, onChange }: { value: string; onChange: (v: string) 
   );
 };
 
-/** =========================================
- *  主组件
- *  =======================================*/
+/* ===================== 主组件 ===================== */
 export default function App() {
-  /** 路由（首页/设置） */
+  /* 路由（首页/设置） */
   const [page, setPage] = useState<"home" | "settings">("home");
 
-  /** ====== ALAPI 设置 ====== */
+  /* ====== ALAPI 设置 ====== */
   const ALAPI_DEFAULT_TOKEN = "hjp5u0tjjofehuytfmkjsfnfxgq1g8";
   const [alapiBase, setAlapiBase] = useState(() => getLS("alapi_base", "https://v3.alapi.cn"));
   const [alapiToken, setAlapiToken] = useState(() => getLS("alapi_token", ALAPI_DEFAULT_TOKEN));
@@ -152,7 +143,7 @@ export default function App() {
   useEffect(() => setLS("alapi_base", alapiBase), [alapiBase]);
   useEffect(() => setLS("alapi_token", alapiToken), [alapiToken]);
 
-  /** ====== OpenAI 设置（官方 / 自定义） ====== */
+  /* ====== OpenAI 设置（官方 / 自定义） ====== */
   const OFFICIAL = {
     base: "https://api.siliconflow.cn/v1/chat/completions",
     key: "sk-sarbhjodkolnuwdrzfkzkziemxwbvtfocevjwguhwtlyneyh",
@@ -182,11 +173,10 @@ export default function App() {
     }
   };
 
-  /** ====== 首页状态 ====== */
+  /* ====== 首页状态 ====== */
   const [dateTimeLocal, setDateTimeLocal] = useState(() => getLS("date_time", formatLocal(new Date())));
   const [sign, setSign] = useState(() => {
     const v = getLS("star_sign", "capricorn");
-    // 兼容老数据：如果是中文名，映射到英文
     if (!EN_SIGNS.includes(v)) return ZH_TO_EN[v as any] ?? "capricorn";
     return v;
   });
@@ -197,7 +187,7 @@ export default function App() {
   useEffect(() => setLS("date_time", dateTimeLocal), [dateTimeLocal]);
   useEffect(() => setLS("star_sign", sign), [sign]);
 
-  // 首次加载：强制使用系统本地时间，覆盖可能的旧 UTC 值
+  // 首次加载：强制使用系统本地时间
   useEffect(() => {
     const now = formatLocal(new Date());
     setDateTimeLocal(now);
@@ -210,9 +200,7 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /** =========================================
-   *  Almanac（黄历）
-   *  =======================================*/
+  /* ===================== Almanac（黄历） ===================== */
   const buildUrl = (base: string, path: string, params: Record<string, string>) => {
     const u = new URL(path, base.endsWith("/") ? base : base + "/");
     Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
@@ -242,7 +230,7 @@ export default function App() {
       setAlmanacLoading(false);
     }
   };
-  useEffect(() => { if (expandAlmanac) fetchAlmanac(); }, [expandAlmanac, almanacUrl]);
+  // ✅ 只跟随 URL 变化拉取（展开不再触发请求）
   useEffect(() => { fetchAlmanac(); }, [almanacUrl]);
 
   const almanacParsed = useMemo(() => {
@@ -259,24 +247,28 @@ export default function App() {
       };
       const yiList = norm(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
       const jiList = norm(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
+
       let liuyue = d.liuyue;
       if (!liuyue && typeof d.youyin === "string") liuyue = d.youyin.split("·")[0];
+
       return {
         yiList, jiList, yCount: yiList.length, jCount: jiList.length, liuyue,
         caishen: d.caishen, caishen_desc: d.caishen_desc,
         fushen: d.fushen, fushen_desc: d.fushen_desc,
         xishen: d.xishen, xishen_desc: d.xishen_desc,
-        taishen: d.taishen, shou: d.shou, xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
-        ganzhi: d.ganzhi, wuxing: d.wuxing, nongli: d.lunar,
+        taishen: d.taishen, shou: d.shou,
+        xiu: d.xiu, xiu_animal: d.xiu_animal, xiu_luck: d.xiu_luck,
+        // ✅ 农历/干支/五行：多字段容错
+        nongli: d.lunar ?? d.nongli ?? d.lunar_calendar,
+        ganzhi: d.ganzhi ?? d.gz ?? d.tiangan_dizhi,
+        wuxing: d.wuxing ?? d.five_elements,
       };
     } catch {
       return { yiList: [], jiList: [], yCount: 0, jCount: 0, liuyue: "" } as any;
     }
   }, [almanacData]);
 
-  /** =========================================
-   *  Star（星座）
-   *  =======================================*/
+  /* ===================== Star（星座） ===================== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
@@ -330,8 +322,8 @@ export default function App() {
     }
     let n = Number(v);
     if (isNaN(n)) return null;
-    if (n > 0 && n <= 1) n = n * 100; // 0~1 -> 百分比
-    else if (n > 1 && n <= 5 && Number.isInteger(n)) n = n * 20; // 1~5 星 -> 百分比
+    if (n > 0 && n <= 1) n = n * 100;
+    else if (n > 1 && n <= 5 && Number.isInteger(n)) n = n * 20;
     return Math.max(0, Math.min(100, n));
   };
   const pickStarScores = (data: any) => {
@@ -408,9 +400,7 @@ export default function App() {
     }
   }, [starData, starTab, dateTimeLocal]);
 
-  /** =========================================
-   *  今日建议（AI） —— 采用你给的三段式渲染
-   *  =======================================*/
+  /* ===================== 今日建议（AI） ===================== */
   const [advLoading, setAdvLoading] = useState(false);
   const [advice, setAdvice] = useState<string>("");
 
@@ -477,15 +467,14 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayDate, sign, starTab, starData, almanacData, starLoading, almanacLoading, aiBase, openAIKey, openAIModel]);
 
-  /** =========================================
-   *  UI 结构
-   *  =======================================*/
+  /* ===================== UI 结构 ===================== */
   const Home = (
     <div className="space-y-6">
       {/* 每日黄历 */}
       <Card>
         <SectionTitle icon={CalendarDays} title="每日黄历" />
 
+        {/* 顶部：日期 + 农历/干支/五行（移除“信息以系统时间为准”提示） */}
         <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm mb-3">
           <input
             type="datetime-local"
@@ -653,7 +642,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
                       )}
                       {starSlice?.love_text && (
                         <div className="mb-4">
-                          <div className="flex items中心 gap-2 font-medium text-slate-800">
+                          <div className="flex items-center gap-2 font-medium text-slate-800">
                             <IconCmp Comp={Heart} className="w-4 h-4" /> 爱情
                           </div>
                           <p className="mt-1">{starSlice.love_text}</p>
@@ -684,7 +673,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         </div>
       </Card>
 
-      {/* OpenAI · 今日建议（采用你给的三段式写法） */}
+      {/* OpenAI · 今日建议（你的三段式写法） */}
       <Card>
         <SectionTitle icon={Wand2} title="OpenAI · 今日建议" />
         {advLoading ? (
@@ -732,7 +721,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
               <button
                 type="button"
                 onClick={() => setShowAlapiToken((s) => !s)}
-                className="rounded-lg border px-2 py-1 text-xs bg白 hover:bg-slate-50"
+                className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50"
               >
                 {showAlapiToken ? "隐藏" : "显示"}
               </button>
