@@ -131,7 +131,7 @@ export default function App() {
   const [page, setPage] = useState<"home" | "settings">("home");
 
   /* ALAPI */
-  const ALAPI_DEFAULT_TOKEN = "hjp5u0tjjofehuytfmkjsfnfxgq1g8";
+  const ALAPI_DEFAULT_TOKEN = "hxnwvzvnu0oip2q6emnhgd5qbf2dla";
   const [alapiBase, setAlapiBase] = useState(() => getLS("alapi_base", "https://v3.alapi.cn"));
   const [alapiToken, setAlapiToken] = useState(() => getLS("alapi_token", ALAPI_DEFAULT_TOKEN));
   const [showAlapiToken, setShowAlapiToken] = useState(false);
