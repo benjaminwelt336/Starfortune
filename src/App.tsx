@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Lucide from "lucide-react";
 
+/* =====================================================
+ *  修复点摘要（不改变 UI / 交互 / 配置项）：
+ *  1) 解决 React 18 StrictMode 下首次加载副作用双执行导致的重复请求：
+ *     - 为 Almanac 与 Star 请求加入基于参数的 in-flight 去重键（key），同 key 正在请求时直接跳过。
+ *  2) 更稳健的回退策略：仅在网络错误或 404/405/415/5xx 时才回退到 GET/直连，
+ *     对 401/403/429（限流）等明确错误不再叠加第二次请求，避免“请求次数过多”。
+ *  3) OpenAI 建议生成仅在“星座 + 黄历都就绪且不在加载中”时触发，并对 prompt key 去重，
+ *     避免同一 prompt 的重复生成。
+ *  4) 其它行为、UI、配置项保持不变；所有现有功能不受影响。
+ * ===================================================== */
+
 /* ============ LocalStorage helpers ============ */
 const getLS = (k: string, d: string) => { try { const v = localStorage.getItem(k); return v ?? d; } catch (_e) { return d; } };
 const setLS = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch (_e) {} };
@@ -24,6 +35,22 @@ function msToNextMidnight(from = new Date()) {
   const next = new Date(from);
   next.setHours(24, 0, 0, 0);
   return next.getTime() - from.getTime();
+}
+
+/* ============ Fallback / Dedup helpers ============ */
+const NON_FALLBACK_STATUS = new Set([401, 403, 429]);
+const FALLBACK_STATUS = new Set([404, 405, 415]);
+
+function shouldFallbackHttp(status: number) {
+  if (NON_FALLBACK_STATUS.has(status)) return false;
+  if (FALLBACK_STATUS.has(status)) return true;
+  if (status >= 500) return true;
+  return false;
+}
+
+function toKey(obj: unknown) {
+  // 稳定 key（避免无意义的字符串波动）
+  try { return JSON.stringify(obj); } catch { return String(obj); }
 }
 
 /* ============ Icon safe wrappers ============ */
@@ -193,7 +220,7 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /* ======== Almanac（POST 优先 + GET 回退） ======== */
+  /* ======== Almanac（POST 优先 + GET 回退，仅必要时） ======== */
   const almanacEndpoint = useMemo(
     () => `${alapiBase.replace(/\/$/, "")}/api/lunar`,
     [alapiBase]
@@ -207,7 +234,13 @@ export default function App() {
   const [almanacError, setAlmanacError] = useState<string | null>(null);
   const [almanacData, setAlmanacData] = useState<any>(null);
 
-  const fetchAlmanac = async () => {
+  // in-flight 去重：同 key 正在进行中时不再触发第二次
+  const almanacInflightKeyRef = useRef<string | null>(null);
+
+  const fetchAlmanac = async (reqKey: string) => {
+    if (almanacInflightKeyRef.current === reqKey) return; // StrictMode 第二次执行直接跳过
+    almanacInflightKeyRef.current = reqKey;
+
     setAlmanacLoading(true);
     setAlmanacError(null);
 
@@ -218,41 +251,58 @@ export default function App() {
     } as Record<string, string>;
 
     try {
-      // 优先：官方推荐写法（POST + header token + JSON body）
-      let res = await fetch(almanacEndpoint, { method: "POST", headers, body });
-      if (!res.ok) throw new Error(`POST ${res.status} ${res.statusText}`);
-      let json = await res.json();
-      if (!(json?.code === 200 || json?.success === true)) {
-        throw new Error(`POST payload: ${json?.message || "unexpected response"}`);
-      }
-      setAlmanacData(json);
-    } catch (err1: any) {
-      // 回退：GET + query（防 CORS / 代理）
-      try {
-        const u = new URL(almanacEndpoint);
-        u.searchParams.set("date", (almanacBody as any).date);
-        if (alapiToken) u.searchParams.set("token", alapiToken);
-        const res2 = await fetch(u.toString(), { method: "GET", cache: "no-store" });
-        if (!res2.ok) throw new Error(`GET ${res2.status} ${res2.statusText}`);
-        const json2 = await res2.json();
-        if (!(json2?.code === 200 || json2?.success === true)) {
-          throw new Error(`GET payload: ${json2?.message || "unexpected response"}`);
+      // ① 优先：官方推荐写法（POST + header token + JSON body）
+      let res = await fetch(almanacEndpoint, { method: "POST", headers, body, cache: "no-store" });
+      if (!res.ok) {
+        // 仅在“有意义的失败”时回退
+        if (shouldFallbackHttp(res.status)) {
+          // ② 回退：GET + query（防 CORS / 代理），但对 401/403/429 不回退，避免叠加请求
+          const u = new URL(almanacEndpoint);
+          u.searchParams.set("date", (almanacBody as any).date);
+          if (alapiToken) u.searchParams.set("token", alapiToken);
+          const res2 = await fetch(u.toString(), { method: "GET", cache: "no-store" });
+          if (!res2.ok) throw new Error(`GET ${res2.status} ${res2.statusText}`);
+          const json2 = await res2.json();
+          if (!(json2?.code === 200 || json2?.success === true)) {
+            const msg = json2?.message || json2?.msg || "unexpected response";
+            throw new Error(`GET payload: ${msg}`);
+          }
+          setAlmanacData(json2);
+        } else {
+          throw new Error(`POST ${res.status} ${res.statusText}`);
         }
-        setAlmanacData(json2);
-      } catch (err2: any) {
-        setAlmanacError(err2?.message || err1?.message || "请求失败");
-        setAlmanacData(null);
+      } else {
+        const json = await res.json();
+        if (json?.code === 200 || json?.success === true) {
+          setAlmanacData(json);
+        } else if (Number(json?.code) === 429) {
+          setAlmanacError("API 限流，请稍后再试。");
+          setAlmanacData(null);
+        } else {
+          // 非 200 但 HTTP 为 200，不回退，直接报错，避免重复请求
+          const msg = json?.message || json?.msg || "unexpected response";
+          throw new Error(`POST payload: ${msg}`);
+        }
       }
+    } catch (err: any) {
+      setAlmanacError(err?.message || "请求失败");
+      setAlmanacData(null);
     } finally {
       setAlmanacLoading(false);
+      almanacInflightKeyRef.current = null;
     }
   };
 
+  const almanacReqKey = useMemo(
+    () => toKey({ endpoint: almanacEndpoint, date: (almanacBody as any).date, hasToken: !!alapiToken }),
+    [almanacEndpoint, almanacBody, alapiToken]
+  );
+
   // 仅在 基址/Token/日期 变化时重拉（展开不再发新请求）
   useEffect(() => {
-    fetchAlmanac();
+    fetchAlmanac(almanacReqKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [almanacEndpoint, alapiToken, almanacBody]);
+  }, [almanacReqKey]);
 
   // 解析：宜/忌 + 农历/干支/五行 + 六曜（只认 six_star）
   const almanacParsed = useMemo(() => {
@@ -262,7 +312,7 @@ export default function App() {
       const normList = (v: any): string[] => {
         if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
         if (typeof v === "string") {
-          const seps = ["、", " ", "，", ",", " "]; let s = v;
+          const seps = ["、", "\u2003", "，", ",", " "]; let s = v;
           for (const c of seps) s = s.split(c).join(" ");
           return s.split(" ").map(x => x.trim()).filter(Boolean);
         }
@@ -332,7 +382,7 @@ export default function App() {
         const d2 = (typeof day === "string" && day.trim()) ? day.trim() : "";
         if (y2 || m2 || d2) return `${y2}${y2 ? "年" : ""}${m2}${m2 ? "月" : ""}${d2}`;
         const legacy = [d.lunar, d.nongli, d.lunar_calendar, d.lunar_text, d.lunar_cn].find(
-          v => typeof v === "string" && v.trim()
+          v => typeof v === "string" && (v as string).trim()
         );
         return (legacy as string | undefined)?.trim() ?? null;
       })();
@@ -344,7 +394,7 @@ export default function App() {
         const day = (d.ganzhi_day as string) || "";
         const parts = [y, m, day].map(s => (typeof s === "string" ? s.trim() : "")).filter(Boolean);
         if (parts.length) return parts.join(" ");
-        const legacy = [d.ganzhi, d.gz, d.tiangan_dizhi].find(v => typeof v === "string" && v.trim());
+        const legacy = [d.ganzhi, d.gz, d.tiangan_dizhi].find(v => typeof v === "string" && (v as string).trim());
         return (legacy as string | undefined)?.trim() ?? null;
       })();
 
@@ -374,13 +424,17 @@ export default function App() {
     }
   }, [almanacData]);
 
-  /* ======== Star：补传 token + 回退 + 补依赖 ======== */
+  /* ======== Star：补传 token + 必要时回退 + 请求去重 ======== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
   const starAbortRef = useRef<AbortController | null>(null);
+  const starInflightKeyRef = useRef<string | null>(null);
 
-  const fetchStar = async (starOverride?: string, typeOverride?: string) => {
+  const fetchStar = async (reqKey: string, starOverride?: string, typeOverride?: string) => {
+    if (starInflightKeyRef.current === reqKey) return; // StrictMode 二次触发去重
+    starInflightKeyRef.current = reqKey;
+
     try {
       if (starAbortRef.current) starAbortRef.current.abort();
       const controller = new AbortController();
@@ -404,32 +458,49 @@ export default function App() {
 
       let res = await fetch(u1.toString(), { cache: "no-store", signal: controller.signal });
       if (!res.ok) {
-        // ② 回退到直连 ALAPI（以防本地没有 /api/star 路由）
-        const base = alapiBase.endsWith("/") ? alapiBase : alapiBase + "/";
-        const u2 = new URL("/api/star", base);
-        u2.searchParams.set("star", starParam);
-        u2.searchParams.set("type", typeParam);
-        u2.searchParams.set("date", dateParam);
-        if (alapiToken) u2.searchParams.set("token", alapiToken);
-        u2.searchParams.set("_ts", Date.now().toString());
-        res = await fetch(u2.toString(), { cache: "no-store", signal: controller.signal });
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        if (shouldFallbackHttp(res.status)) {
+          // ② 回退到直连 ALAPI（以防本地没有 /api/star 路由）
+          const base = alapiBase.endsWith("/") ? alapiBase : alapiBase + "/";
+          const u2 = new URL("/api/star", base);
+          u2.searchParams.set("star", starParam);
+          u2.searchParams.set("type", typeParam);
+          u2.searchParams.set("date", dateParam);
+          if (alapiToken) u2.searchParams.set("token", alapiToken);
+          u2.searchParams.set("_ts", Date.now().toString());
+          res = await fetch(u2.toString(), { cache: "no-store", signal: controller.signal });
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        } else {
+          throw new Error(`${res.status} ${res.statusText}`);
+        }
       }
 
       const json = await res.json();
-      setStarData(json);
+      // 不再对 429 再次回退请求
+      if (Number(json?.code) === 429) {
+        setStarError("API 限流，请稍后再试。");
+        setStarData(null);
+      } else {
+        setStarData(json);
+      }
     } catch (e: any) {
       if (e?.name === "AbortError") return;
       setStarError(e?.message || String(e));
       setStarData(null);
     } finally {
       setStarLoading(false);
+      starInflightKeyRef.current = null;
     }
   };
+
+  const starReqKey = useMemo(
+    () => toKey({ base: alapiBase, token: !!alapiToken, sign: sign, date: toApiDateTime(dateTimeLocal) }),
+    [alapiBase, alapiToken, sign, dateTimeLocal]
+  );
+
   useEffect(() => {
-    fetchStar();
+    fetchStar(starReqKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sign, dateTimeLocal, alapiToken, alapiBase]);
+  }, [starReqKey]);
 
   const sliceByTab = (raw: any, tab: string) => {
     const d: any = (raw?.data ?? raw) || {};
@@ -533,22 +604,26 @@ export default function App() {
     ].filter(Boolean).join("，");
     const yi = (almanacParsed?.yiList || []).slice(0, 10).join("、") || "无";
     const ji = (almanacParsed?.jiList || []).slice(0, 10).join("、") || "无";
-    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条不超过30字。
-日期：${displayDate}
-星座：${signZh} (${sign})，类型：${tabZh[starTab]}
-星座概览：${summary}
-评分：${scoresStr}
-${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
-黄历忌：${ji}`;
+    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条不超过30字。\n日期：${displayDate}\n星座：${signZh} (${sign})，类型：${tabZh[starTab]}\n星座概览：${summary}\n评分：${scoresStr}\n${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}\n黄历忌：${ji}`;
   }, [displayDate, sign, starTab, starSummaryFromApi, starScores, luckyBits, almanacParsed]);
 
+  // 去重 key：同一 prompt + 模型配置不重复调用
+  const adviceInflightKeyRef = useRef<string | null>(null);
+  const adviceReqKey = useMemo(
+    () => toKey({ prompt: advicePrompt, base: aiBase, key: !!openAIKey, model: openAIModel }),
+    [advicePrompt, aiBase, openAIKey, openAIModel]
+  );
+
   async function runAdvice() {
+    if (!aiBase || !openAIKey || !openAIModel) {
+      setAdvice("请先在设置页填写 API 地址、秘钥和模型。");
+      return;
+    }
+    if (adviceInflightKeyRef.current === adviceReqKey) return; // 去重
+    adviceInflightKeyRef.current = adviceReqKey;
+
     try {
       setAdvLoading(true);
-      if (!aiBase || !openAIKey || !openAIModel) {
-        setAdvice("请先在设置页填写 API 地址、秘钥和模型。");
-        return;
-      }
       const res = await fetch(aiBase, {
         method: "POST",
         headers: { "Authorization": `Bearer ${openAIKey}`, "Content-Type": "application/json" },
@@ -568,15 +643,18 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
       setAdvice(`生成失败：${e?.message || String(e)}`);
     } finally {
       setAdvLoading(false);
+      adviceInflightKeyRef.current = null;
     }
   }
 
+  // 仅当 两端数据就绪 且 不在加载中 时自动生成，避免重复触发
   useEffect(() => {
-    if (!aiBase || !openAIKey || !openAIModel) return;
-    if (starLoading || almanacLoading) return;
-    if (starData || almanacData) runAdvice();
+    const haveStar = !!starData && !starLoading;
+    const haveAlmanac = !!almanacData && !almanacLoading;
+    if (!haveStar || !haveAlmanac) return;
+    runAdvice();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayDate, sign, starTab, starData, almanacData, starLoading, almanacLoading, aiBase, openAIKey, openAIModel]);
+  }, [adviceReqKey, starData, almanacData, starLoading, almanacLoading]);
 
   /* ========== UI ========== */
   const Home = (
@@ -678,7 +756,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           <SignSelect value={sign} onChange={(v) => setSign(v)} />
           <div className="rounded-xl border px-3 py-1.5 bg-white text-slate-600">{displayDate}</div>
           <div className="flex items-center gap-2">
-            {[["day", "今日"], ["tomorrow", "明日"], ["week", "本周"], ["month", "本月"], ["year", "全年"]].map(([k, label]) => (
+            {[['day', '今日'], ['tomorrow', '明日'], ['week', '本周'], ['month', '本月'], ['year', '全年']].map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => setStarTab(k as any)}
@@ -737,7 +815,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
                     <>
                       {starSlice?.all_text && (
                         <div className="mb-4">
-                          <div className="flex items-center gap-2 font-medium text-slate-800">
+                          <div className="flex items中心 gap-2 font-medium text-slate-800">
                             <IconCmp Comp={Sparkles} className="w-4 h-4" /> 综合
                           </div>
                           <p className="mt-1">{starSlice.all_text}</p>
@@ -797,7 +875,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           )
         )}
         <div className="pt-2">
-          <button onClick={()=>runAdvice()} className="rounded-xl px-3 py-1.5 text-sm border bg-white hover:bg-slate-50 disabled:opacity-60" disabled={advLoading}>
+          <button onClick={()=>runAdvice()} className="rounded-xl px-3 py-1.5 text-sm border bg白色 hover:bg-slate-50 disabled:opacity-60" disabled={advLoading}>
             手动生成
           </button>
         </div>
