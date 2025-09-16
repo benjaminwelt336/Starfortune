@@ -141,7 +141,7 @@ export default function App() {
   /* OpenAI */
   const OFFICIAL = {
     base: "https://api.siliconflow.cn/v1/chat/completions",
-    key: "sk-sarbhjodkolnuwdrzfkzkziemxwbvtfocevjwguhwtlyneyh",
+    key: "sk-rxlajixcihcvdqaajdvbkfsblqabesfjxknjztszfdnvkyze",
     model: "deepseek-ai/DeepSeek-V3.1",
   } as const;
   const [aiMode, setAiMode] = useState<"official" | "custom">(() => (getLS("ai_mode", "official") as any));
@@ -831,11 +831,11 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         <div className="mb-3 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
-            官方（固定为你的三项配置）
+            官方
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "custom"} onChange={() => switchMode("custom")} />
-            自定义（会清空三项）
+            自定义
           </label>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
@@ -879,7 +879,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           }}
           className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50"
         >
-          重置为默认
+          重置
         </button>
       </div>
     </div>
