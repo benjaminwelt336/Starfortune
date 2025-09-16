@@ -689,29 +689,20 @@ export default function App() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-3">
-          /* 吉神（绿色系渐变） */
-          <div
-            className="text-3xl font-bold mt-1 grad-text"
-            style={{ ["--from" as any]: "#10b981", ["--to" as any]: "#06b6d4" } as any}
-          >
-            {almanacParsed.yCount}
+          {/* 吉神 */}
+          <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
+            <div className="text-slate-700/80 text-sm">吉神</div>
+            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.yCount}</div>
           </div>
-
-          /* 凶神（红橙系渐变） */
-          <div
-            className="text-3xl font-bold mt-1 grad-text"
-            style={{ ["--from" as any]: "#ef4444", ["--to" as any]: "#f59e0b" } as any}
-          >
-            {almanacParsed.jCount}
+          {/* 凶神 */}
+          <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
+            <div className="text-slate-700/80 text-sm">凶神</div>
+            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.jCount}</div>
           </div>
-
-          /* 六曜（紫青系渐变） */
-          <div
-            className="text-3xl font-bold mt-1 grad-text"
-            style={{ ["--from" as any]: "#8b5cf6", ["--to" as any]: "#14b8a6" } as any}
-          >
-            {almanacParsed.six_star || "—"}
-          </div>
+          {/* 六曜（six_star） */}
+          <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
+            <div className="text-slate-700/80 text-sm">六曜</div>
+            <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.six_star || "—"}</div>
           </div>
 
           {/* 宜 */}
@@ -1001,12 +992,6 @@ export default function App() {
           background:linear-gradient(90deg,var(--from),var(--to));
           border:1px solid rgba(0,0,0,.05);
           box-shadow:0 1px 0 rgba(255,255,255,.7) inset;
-        }
-        .grad-text{
-          background: linear-gradient(90deg, var(--from,#6366f1), var(--to,#0ea5e9));
-          -webkit-background-clip: text;
-          background-clip: text;
-         color: transparent;
         }
       `}</style>
 
