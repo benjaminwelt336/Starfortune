@@ -141,7 +141,7 @@ export default function App() {
   /* OpenAI */
   const OFFICIAL = {
     base: "https://api.siliconflow.cn/v1/chat/completions",
-    key: "sk-sarbhjodkolnuwdrzfkzkziemxwbvtfocevjwguhwtlyneyh",
+    key: "sk-rxlajixcihcvdqaajdvbkfsblqabesfjxknjztszfdnvkyze",
     model: "deepseek-ai/DeepSeek-V3.1",
   } as const;
   const [aiMode, setAiMode] = useState<"official" | "custom">(() => (getLS("ai_mode", "official") as any));
@@ -211,7 +211,7 @@ export default function App() {
     setAlmanacLoading(true);
     setAlmanacError(null);
 
-    const body = JSON.stringify(almanacBody);
+    const body = JSON.stringify(almanacBody); // { date: "YYYY-MM-DD 12:00:00" }
     const headers = {
       "Content-Type": "application/json",
       token: alapiToken || "",
@@ -322,7 +322,7 @@ export default function App() {
         return deep || null;
       })();
 
-      // 农历（*_chinese）
+      // 农历（你给的字段：*_chinese）
       const nongli = (() => {
         const y = (d.lunar_year_chinese ?? d.lunar_year_cn ?? d.lunar_year) as string | undefined;
         const m = (d.lunar_month_chinese ?? d.lunar_month_cn ?? d.lunar_month) as string | undefined;
@@ -374,7 +374,7 @@ export default function App() {
     }
   }, [almanacData]);
 
-  /* ======== Star（修复：传 token；增加回退；依赖 base/token） ======== */
+  /* ======== Star：补传 token + 回退 + 补依赖 ======== */
   const [starLoading, setStarLoading] = useState(false);
   const [starError, setStarError] = useState<string | null>(null);
   const [starData, setStarData] = useState<any>(null);
@@ -394,18 +394,17 @@ export default function App() {
       const typeParam = typeOverride ?? "all";
       const dateParam = toApiDateTime(dateTimeLocal);
 
-      // ① 优先：同源 /api/star（你的 Vercel/Electron API 路由）
+      // ① 优先走同源函数 /api/star（Vercel/Electron）
       const u1 = new URL("/api/star", window.location.origin);
       u1.searchParams.set("star", starParam);
       u1.searchParams.set("type", typeParam);
       u1.searchParams.set("date", dateParam);
-      if (alapiToken) u1.searchParams.set("token", alapiToken); // ✅ 关键：把 token 也带上
+      if (alapiToken) u1.searchParams.set("token", alapiToken); // 关键：传 token
       u1.searchParams.set("_ts", Date.now().toString());
 
       let res = await fetch(u1.toString(), { cache: "no-store", signal: controller.signal });
-
-      // ② 回退：如果同源路由不可用（非 2xx），尝试直连你配置的 alapiBase 的 /api/star（若无，则第一步应已成功）
       if (!res.ok) {
+        // ② 回退到直连 ALAPI（以防本地没有 /api/star 路由）
         const base = alapiBase.endsWith("/") ? alapiBase : alapiBase + "/";
         const u2 = new URL("/api/star", base);
         u2.searchParams.set("star", starParam);
@@ -427,8 +426,6 @@ export default function App() {
       setStarLoading(false);
     }
   };
-
-  // 触发依赖里包含 base/token，修改设置后自动重拉
   useEffect(() => {
     fetchStar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -756,7 +753,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
                       )}
                       {starSlice?.love_text && (
                         <div className="mb-4">
-                          <div className="flex items中心 gap-2 font-medium text-slate-800">
+                          <div className="flex items-center gap-2 font-medium text-slate-800">
                             <IconCmp Comp={Heart} className="w-4 h-4" /> 爱情
                           </div>
                           <p className="mt-1">{starSlice.love_text}</p>
@@ -820,7 +817,7 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">ALAPI Token</div>
             <div className="flex items-center gap-2">
-              <input className="w-full rounded-xl border px-3 py-2 bg白色" type={showAlapiToken ? "text" : "password"} value={alapiToken} onChange={(e) => setAlapiToken(e.target.value)} placeholder="你的 token" />
+              <input className="w-full rounded-xl border px-3 py-2 bg-white" type={showAlapiToken ? "text" : "password"} value={alapiToken} onChange={(e) => setAlapiToken(e.target.value)} placeholder="你的 token" />
               <button type="button" onClick={() => setShowAlapiToken(s => !s)} className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50">
                 {showAlapiToken ? "隐藏" : "显示"}
               </button>
@@ -834,30 +831,30 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
         <div className="mb-3 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
-            官方（固定为你的三项配置）
+            官方
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "custom"} onChange={() => switchMode("custom")} />
-            自定义（会清空三项）
+            自定义
           </label>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">API地址</div>
-            <input className="w-full rounded-xl border px-3 py-2 bg白色" value={aiBase} onChange={(e) => setAiBase(e.target.value)} placeholder="https://api.siliconflow.cn/v1/chat/completions" />
+            <input className="w-full rounded-xl border px-3 py-2 bg-white" value={aiBase} onChange={(e) => setAiBase(e.target.value)} placeholder="https://api.siliconflow.cn/v1/chat/completions" />
           </label>
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">API秘钥</div>
             <div className="flex items-center gap-2">
-              <input className="w-full rounded-xl border px-3 py-2 bg白色" type={showOpenAIKey ? "text" : "password"} value={openAIKey} onChange={(e) => setOpenAIKey(e.target.value)} placeholder="sk-..." />
-              <button type="button" onClick={() => setShowOpenAIKey(s => !s)} className="rounded-lg border px-2 py-1 text-xs bg白色 hover:bg-slate-50">
+              <input className="w-full rounded-xl border px-3 py-2 bg-white" type={showOpenAIKey ? "text" : "password"} value={openAIKey} onChange={(e) => setOpenAIKey(e.target.value)} placeholder="sk-..." />
+              <button type="button" onClick={() => setShowOpenAIKey(s => !s)} className="rounded-lg border px-2 py-1 text-xs bg-white hover:bg-slate-50">
                 {showOpenAIKey ? "隐藏" : "显示"}
               </button>
             </div>
           </label>
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">模型设置</div>
-            <input className="w-full rounded-xl border px-3 py-2 bg白色" value={openAIModel} onChange={(e) => setOpenAIModel(e.target.value)} placeholder="deepseek-ai/DeepSeek-V3.1" />
+            <input className="w-full rounded-xl border px-3 py-2 bg-white" value={openAIModel} onChange={(e) => setOpenAIModel(e.target.value)} placeholder="deepseek-ai/DeepSeek-V3.1" />
           </label>
         </div>
       </Card>
@@ -880,9 +877,9 @@ ${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}
             setExpandAlmanac(false);
             setShowStarDetail(false);
           }}
-          className="rounded-xl border px-3 py-2 text-sm bg白色 hover:bg-slate-50"
+          className="rounded-xl border px-3 py-2 text-sm bg-white hover:bg-slate-50"
         >
-          重置为默认
+          重置
         </button>
       </div>
     </div>
