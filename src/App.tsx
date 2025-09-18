@@ -209,15 +209,25 @@ export default function App() {
   useEffect(() => setLS("date_time", dateTimeLocal), [dateTimeLocal]);
   useEffect(() => setLS("star_sign", sign), [sign]);
 
-  // 初始强制为系统时间；午夜自动刷新
+  // 初始强制为系统时间；每次打开/聚焦页面自动刷新为当前时间（取消 0 点自动刷新）
   useEffect(() => {
     const now = formatLocal(new Date());
     setDateTimeLocal(now);
     setLS("date_time", now);
   }, []);
   useEffect(() => {
-    const t = setTimeout(() => setDateTimeLocal(formatLocal(new Date())), msToNextMidnight());
-    return () => clearTimeout(t);
+    const syncNow = () => {
+      const now = formatLocal(new Date());
+      setDateTimeLocal(now);
+      setLS("date_time", now);
+    };
+    window.addEventListener("focus", syncNow);
+    const onVis = () => { if (document.visibilityState === "visible") syncNow(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", syncNow);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   /* ======== Almanac（POST 优先 + GET 回退，仅必要时） ======== */
@@ -910,10 +920,6 @@ export default function App() {
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
             官方
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="radio" name="aimode" checked={aiMode === "custom"} onChange={() => switchMode("custom")} />
-            自定义
           </label>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
