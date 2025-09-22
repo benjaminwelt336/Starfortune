@@ -69,7 +69,7 @@ const ChevronIcon = ({ up = false, className = "" }: { up?: boolean; className?:
   );
 };
 
-const { CalendarDays, Moon, Ghost, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
+const { CalendarDays, Moon, Zap, Triangle, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
 
 /* ============ UI atoms ============ */
 const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
@@ -577,7 +577,7 @@ export default function App() {
       const f = toNum(d.money ?? d.finance ?? d.wealth ?? d.fortune ?? d.finance_index);
       const h = toNum(d.health ?? d.health_index);
       const out = [
-        { key: "综合", val: o, icon: Ghost },
+        { key: "综合", val: o, icon: Zap },
         { key: "工作", val: w, icon: Briefcase },
         { key: "爱情", val: l, icon: Heart },
         { key: "财富", val: f, icon: Wallet },
@@ -588,7 +588,7 @@ export default function App() {
   };
   const starScores = useMemo(
     () => pickStarScores(starSlice) ?? [
-      { key: "综合", val: 90, icon: Ghost },
+      { key: "综合", val: 90, icon: Zap },
       { key: "工作", val: 90, icon: Briefcase },
       { key: "爱情", val: 91, icon: Heart },
       { key: "财富", val: 93, icon: Wallet },
@@ -861,7 +861,7 @@ export default function App() {
                       {starSlice?.all_text && (
                         <div className="mb-4">
                           <div className="flex items中心 gap-2 font-medium text-slate-800">
-                            <IconCmp Comp={Ghost} className="w-4 h-4" /> 综合
+                            <IconCmp Comp={Zap} className="w-4 h-4" /> 综合
                           </div>
                           <p className="mt-1">{starSlice.all_text}</p>
                         </div>
@@ -931,7 +931,7 @@ export default function App() {
   const SettingsPage = (
     <div className="space-y-6">
       <Card>
-        <SectionTitle icon={Settings} title="ALAPI 设置" />
+        <SectionTitle icon={Triangle} title="ALAPI 设置" />
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">ALAPI 基址</div>
