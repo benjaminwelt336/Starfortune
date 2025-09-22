@@ -796,7 +796,7 @@ export default function App() {
 
       {/* 每日星座 */}
       <Card>
-        <SectionTitle icon={Sun} title="每日星座" />
+        <SectionTitle icon={Moon} title="每日星座" />
         <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm mb-3">
           <SignSelect value={sign} onChange={(v) => setSign(v)} />
           <div className="rounded-xl border px-3 py-1.5 bg-white text-slate-600">{displayDate}</div>
@@ -861,7 +861,7 @@ export default function App() {
                       {starSlice?.all_text && (
                         <div className="mb-4">
                           <div className="flex items中心 gap-2 font-medium text-slate-800">
-                            <IconCmp Comp={Sparkles} className="w-4 h-4" /> 综合
+                            <IconCmp Comp={Activity} className="w-4 h-4" /> 综合
                           </div>
                           <p className="mt-1">{starSlice.all_text}</p>
                         </div>
@@ -893,7 +893,7 @@ export default function App() {
                       {starSlice?.health_text && (
                         <div className="mb-2">
                           <div className="flex items-center gap-2 font-medium text-slate-800">
-                            <IconCmp Comp={Activity} className="w-4 h-4" /> 健康
+                            <IconCmp Comp={Egg} className="w-4 h-4" /> 健康
                           </div>
                           <p className="mt-1">{starSlice.health_text}</p>
                         </div>
@@ -931,7 +931,7 @@ export default function App() {
   const SettingsPage = (
     <div className="space-y-6">
       <Card>
-        <SectionTitle icon={Settings} title="ALAPI 设置" />
+        <SectionTitle icon={Ghost} title="ALAPI 设置" />
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">ALAPI 基址</div>
@@ -950,7 +950,7 @@ export default function App() {
       </Card>
 
       <Card>
-        <SectionTitle icon={Sparkles} title="OpenAI 设置" />
+        <SectionTitle icon={Wand2} title="OpenAI 设置" />
         <div className="mb-3 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
