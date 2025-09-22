@@ -69,7 +69,7 @@ const ChevronIcon = ({ up = false, className = "" }: { up?: boolean; className?:
   );
 };
 
-const { CalendarDays, Sun, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
+const { CalendarDays, Moon, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
 
 /* ============ UI atoms ============ */
 const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
@@ -796,7 +796,7 @@ export default function App() {
 
       {/* 每日星座 */}
       <Card>
-        <SectionTitle icon={Sun} title="每日星座" />
+        <SectionTitle icon={Moon} title="每日星座" />
         <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm mb-3">
           <SignSelect value={sign} onChange={(v) => setSign(v)} />
           <div className="rounded-xl border px-3 py-1.5 bg-white text-slate-600">{displayDate}</div>
