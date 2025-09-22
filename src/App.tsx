@@ -69,7 +69,7 @@ const ChevronIcon = ({ up = false, className = "" }: { up?: boolean; className?:
   );
 };
 
-const { CalendarDays, Moon, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
+const { CalendarDays, Moon, Ghost, Settings, Sparkles, Heart, Briefcase, Wallet, Activity, Wand2 } = (Lucide as any);
 
 /* ============ UI atoms ============ */
 const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
@@ -577,7 +577,7 @@ export default function App() {
       const f = toNum(d.money ?? d.finance ?? d.wealth ?? d.fortune ?? d.finance_index);
       const h = toNum(d.health ?? d.health_index);
       const out = [
-        { key: "综合", val: o, icon: Sparkles },
+        { key: "综合", val: o, icon: Ghost },
         { key: "工作", val: w, icon: Briefcase },
         { key: "爱情", val: l, icon: Heart },
         { key: "财富", val: f, icon: Wallet },
@@ -588,7 +588,7 @@ export default function App() {
   };
   const starScores = useMemo(
     () => pickStarScores(starSlice) ?? [
-      { key: "综合", val: 90, icon: Sparkles },
+      { key: "综合", val: 90, icon: Ghost },
       { key: "工作", val: 90, icon: Briefcase },
       { key: "爱情", val: 91, icon: Heart },
       { key: "财富", val: 93, icon: Wallet },
@@ -861,7 +861,7 @@ export default function App() {
                       {starSlice?.all_text && (
                         <div className="mb-4">
                           <div className="flex items中心 gap-2 font-medium text-slate-800">
-                            <IconCmp Comp={Sparkles} className="w-4 h-4" /> 综合
+                            <IconCmp Comp={Ghost} className="w-4 h-4" /> 综合
                           </div>
                           <p className="mt-1">{starSlice.all_text}</p>
                         </div>
@@ -950,7 +950,7 @@ export default function App() {
       </Card>
 
       <Card>
-        <SectionTitle icon={Sparkles} title="OpenAI 设置" />
+        <SectionTitle icon={Wand2} title="OpenAI 设置" />
         <div className="mb-3 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
@@ -1044,7 +1044,7 @@ export default function App() {
             </div>
             <div>
               <div className="text-xl font-bold leading-tight">星运通</div>
-              <div className="text-xs text-slate-500">星运相通，日日皆宜</div>
+              <div className="text-xs text-slate-500">星运相通，日日皆宜 Fortune favors every day</div>
             </div>
           </div>
           <button
