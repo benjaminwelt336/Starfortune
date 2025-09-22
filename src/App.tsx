@@ -1044,11 +1044,7 @@ export default function App() {
             </div>
             <div>
               <div className="text-xl font-bold leading-tight">星运通</div>
-              <div className="text-xs text-slate-500">
-                星运相通，日日皆宜
-                <span className="hidden sm:inline">　Fortune favors every day</span>
-                <span className="block sm:hidden">Fortune favors every day</span>
-            </div>
+              <div className="text-xs text-slate-500">星运相通|日日皆宜|Fortune Favors Every day</div>
             </div>
           </div>
           <button
