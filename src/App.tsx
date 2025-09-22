@@ -649,7 +649,7 @@ export default function App() {
     ].filter(Boolean).join("，");
     const yi = (almanacParsed?.yiList || []).slice(0, 10).join("、") || "无";
     const ji = (almanacParsed?.jiList || []).slice(0, 10).join("、") || "无";
-    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），每条不超过50字。\n日期：${displayDate}\n星座：${signZh} (${sign})，类型：${tabZh[starTab]}\n星座概览：${summary}\n评分：${scoresStr}\n${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}\n黄历忌：${ji}`;
+    return `请基于以下信息用中文给出3-5条当日可执行建议（编号列表），避免玄学描述，聚焦具体行动，每条不超过30字。\n日期：${displayDate}\n星座：${signZh} (${sign})，类型：${tabZh[starTab]}\n星座概览：${summary}\n评分：${scoresStr}\n${lucky ? `幸运提示：${lucky}\n` : ""}黄历宜：${yi}\n黄历忌：${ji}`;
   }, [displayDate, sign, starTab, starSummaryFromApi, starScores, luckyBits, almanacParsed]);
 
   // 去重 key：同一 prompt + 模型配置不重复调用
@@ -675,7 +675,7 @@ export default function App() {
         body: JSON.stringify({
           model: openAIModel, temperature: 0.7, stream: false,
           messages: [
-            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过50字。" },
+            { role: "system", content: "你是一个中文效率助手，基于用户提供的信息给出理性、可执行的当日建议，使用简洁编号列表，每条不超过30字。" },
             { role: "user", content: advicePrompt },
           ],
         }),
@@ -796,7 +796,7 @@ export default function App() {
 
       {/* 每日星座 */}
       <Card>
-        <SectionTitle icon={Moon} title="每日星座" />
+        <SectionTitle icon={Sun} title="每日星座" />
         <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm mb-3">
           <SignSelect value={sign} onChange={(v) => setSign(v)} />
           <div className="rounded-xl border px-3 py-1.5 bg-white text-slate-600">{displayDate}</div>
@@ -861,7 +861,7 @@ export default function App() {
                       {starSlice?.all_text && (
                         <div className="mb-4">
                           <div className="flex items中心 gap-2 font-medium text-slate-800">
-                            <IconCmp Comp={Activity} className="w-4 h-4" /> 综合
+                            <IconCmp Comp={Sparkles} className="w-4 h-4" /> 综合
                           </div>
                           <p className="mt-1">{starSlice.all_text}</p>
                         </div>
@@ -893,7 +893,7 @@ export default function App() {
                       {starSlice?.health_text && (
                         <div className="mb-2">
                           <div className="flex items-center gap-2 font-medium text-slate-800">
-                            <IconCmp Comp={Egg} className="w-4 h-4" /> 健康
+                            <IconCmp Comp={Activity} className="w-4 h-4" /> 健康
                           </div>
                           <p className="mt-1">{starSlice.health_text}</p>
                         </div>
@@ -931,7 +931,7 @@ export default function App() {
   const SettingsPage = (
     <div className="space-y-6">
       <Card>
-        <SectionTitle icon={Ghost} title="ALAPI 设置" />
+        <SectionTitle icon={Settings} title="ALAPI 设置" />
         <div className="grid md:grid-cols-2 gap-3">
           <label className="block">
             <div className="text-sm text-slate-600 mb-1">ALAPI 基址</div>
@@ -950,7 +950,7 @@ export default function App() {
       </Card>
 
       <Card>
-        <SectionTitle icon={Wand2} title="OpenAI 设置" />
+        <SectionTitle icon={Sparkles} title="OpenAI 设置" />
         <div className="mb-3 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="radio" name="aimode" checked={aiMode === "official"} onChange={() => switchMode("official")} />
