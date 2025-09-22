@@ -733,7 +733,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* 吉神 */}
           <div className="rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">吉神</div>
