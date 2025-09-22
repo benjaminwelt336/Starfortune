@@ -235,9 +235,14 @@ export default function App() {
     () => `${alapiBase.replace(/\/$/, "")}/api/lunar`,
     [alapiBase]
   );
+
+  // —— 新增：仅用于“每日黄历”的系统时间驱动日期（固定到本地 12:00:00）
+  const [almanacDate12, setAlmanacDate12] = useState(() => toApiDateTime(new Date()));
+
+  // —— 改为使用 almanacDate12（不再跟随 dateTimeLocal）
   const almanacBody = useMemo(
-    () => ({ date: toApiDateTime(dateTimeLocal) }),
-    [dateTimeLocal]
+    () => ({ date: almanacDate12 }),
+    [almanacDate12]
   );
 
   const [almanacLoading, setAlmanacLoading] = useState(false);
@@ -303,12 +308,42 @@ export default function App() {
     }
   };
 
+  // —— 新增：系统时间触发（打开 / 焦点 / 标签可见）使 almanacDate12 更新时间
+  useEffect(() => {
+    const syncAlmanacNow = () => setAlmanacDate12(toApiDateTime(new Date()));
+    // 初始同步一次，确保刚打开就是最新
+    syncAlmanacNow();
+
+    window.addEventListener("focus", syncAlmanacNow);
+    const onVis = () => { if (document.visibilityState === "visible") syncAlmanacNow(); };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      window.removeEventListener("focus", syncAlmanacNow);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  // —— 新增：跨越本地午夜后自动刷新一次
+  useEffect(() => {
+    let t: any;
+    const schedule = () => {
+      const ms = msToNextMidnight(new Date());
+      t = setTimeout(() => {
+        setAlmanacDate12(toApiDateTime(new Date())); // 触发最新请求
+        schedule(); // 下一天
+      }, ms + 500); // 缓冲避免边界抖动
+    };
+    schedule();
+    return () => clearTimeout(t);
+  }, []);
+
   const almanacReqKey = useMemo(
     () => toKey({ endpoint: almanacEndpoint, date: (almanacBody as any).date, hasToken: !!alapiToken }),
     [almanacEndpoint, almanacBody, alapiToken]
   );
 
-  // 仅在 基址/Token/日期 变化时重拉（展开不再发新请求）
+  // 仅在 基址/Token/系统日期 变化时重拉（不再跟随 dateTimeLocal 或展开）
   useEffect(() => {
     fetchAlmanac(almanacReqKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
