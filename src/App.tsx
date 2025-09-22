@@ -728,29 +728,34 @@ export default function App() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* 吉神 */}
           <div className="rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
-            <div className="text-slate-500/60 text-sm">吉神</div>
-            <div className="text-2xl font-bold text-slate-800 mt-1">{almanacParsed.yCount}</div>
-          </div>
-          {/* 凶神 */}
-          <div className="rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
-            <div className="text-slate-500/60 text-sm">凶神</div>
-            <div className="text-2xl font-bold text-slate-800 mt-1">{almanacParsed.jCount}</div>
-          </div>
-          {/* 六曜（six_star） */}
-          <div className="rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
-            <div className="text-slate-500/60 text-sm">六曜</div>
-            <div className="text-2xl font-bold text-slate-800 mt-1">{almanacParsed.six_star || "—"}</div>
-          </div>
-
-          {/* 宜 */}
-          <div className="rounded-2xl border p-4 bg-emerald-50/50 md:col-span-3 md:col-start-1">
-            <div className="mb-2"><span className="chip yi">宜</span></div>
-            <div className="flex flex-wrap gap-2.5">
-              {(almanacParsed.yiList || []).map((x, i) => (
-                <span key={i} className="pastel-badge" style={{ ["--c" as any]: "#10b981" } as any}>{x}</span>
-              ))}
+            <div className="text-slate-700/80 text-sm">吉神</div>
+            <div className="text-2xl font-bold mt-1">
+              <span className="bg-gradient-to-r from-sky-600 to-amber-600 bg-clip-text text-transparent inline-block">
+                {almanacParsed.yCount}
+              </span>
             </div>
           </div>
+
+          {/* 凶神 */}
+          <div className="rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
+            <div className="text-slate-700/80 text-sm">凶神</div>
+            <div className="text-2xl font-bold mt-1">
+              <span className="bg-gradient-to-r from-rose-600 to-amber-600 bg-clip-text text-transparent inline-block">
+                {almanacParsed.jCount}
+              </span>
+            </div>
+          </div>
+
+          {/* 六曜（six_star） */}
+          <div className="rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
+            <div className="text-slate-700/80 text-sm">六曜</div>
+            <div className="text-2xl font-bold mt-1">
+              <span className="bg-gradient-to-r from-violet-600 to-teal-600 bg-clip-text text-transparent inline-block">
+                {almanacParsed.six_star || "—"}
+              </span>
+            </div>
+          </div>
+        </div>
 
           {/* 忌 */}
           <div className="rounded-2xl border p-4 bg-rose-50/50 md:col-span-3 md:col-start-1">
