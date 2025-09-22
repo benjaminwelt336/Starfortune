@@ -729,7 +729,7 @@ export default function App() {
           {/* 吉神 */}
           <div className="rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">吉神</div>
-            <div className="text-2x1 font-bold text-slate-700 mt-1">{almanacParsed.yCount}</div>
+            <div className="text-3x1 font-bold text-slate-700 mt-1">{almanacParsed.yCount}</div>
           </div>
           {/* 凶神 */}
           <div className="rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
