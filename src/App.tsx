@@ -733,19 +733,19 @@ export default function App() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
           {/* 吉神 */}
-          <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
+          <div className="rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">吉神</div>
             <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.yCount}</div>
           </div>
           {/* 凶神 */}
-          <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
+          <div className="rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">凶神</div>
             <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.jCount}</div>
           </div>
           {/* 六曜（six_star） */}
-          <div className="relative overflow-hidden rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
+          <div className="rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
             <div className="text-slate-700/80 text-sm">六曜</div>
             <div className="text-3xl font-bold text-slate-800 mt-1">{almanacParsed.six_star || "—"}</div>
           </div>
