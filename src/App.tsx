@@ -727,12 +727,12 @@ export default function App() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* 吉神 */}
-          <div className="rounded-2xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
+          <div className="rounded-1xl border p-4 bg-gradient-to-br from-sky-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">吉神</div>
-            <div className="text-3x3 font-bold text-slate-800 mt-1">{almanacParsed.yCount}</div>
+            <div className="text-3x2 font-bold text-slate-800 mt-1">{almanacParsed.yCount}</div>
           </div>
           {/* 凶神 */}
-          <div className="rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
+          <div className="rounded-1xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">凶神</div>
             <div className="text-3xl font-bold text-slate-700 mt-1">{almanacParsed.jCount}</div>
           </div>
