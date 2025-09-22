@@ -1044,7 +1044,7 @@ export default function App() {
             </div>
             <div>
               <div className="text-xl font-bold leading-tight">星运通</div>
-              <div className="text-xs text-slate-500">星运相通·日日皆宜</div>
+              <div className="text-xs text-slate-500">星运相通 ● 日日皆宜</div>
             </div>
           </div>
           <button
