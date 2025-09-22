@@ -3,14 +3,6 @@ import * as Lucide from "lucide-react";
 
 /* =====================================================
  *  修复点摘要（不改变 UI / 交互 / 配置项）：
- *  1) 解决 React 18 StrictMode 下首次加载副作用双执行导致的重复请求：
- *     - 为 Almanac 与 Star 请求加入基于参数的 in-flight 去重键（key），同 key 正在请求时直接跳过。
- *  2) 更稳健的回退策略：仅在网络错误或 404/405/415/5xx 时才回退到 GET/直连，
- *     对 401/403/429（限流）等明确错误不再叠加第二次请求，避免“请求次数过多”。
- *  3) OpenAI 建议生成仅在“星座 + 黄历都就绪且不在加载中”时触发，并对 prompt key 去重，
- *     避免同一 prompt 的重复生成。
- *  4) 其它行为、UI、配置项保持不变；所有现有功能不受影响。
- * ===================================================== */
 
 /* ============ LocalStorage helpers ============ */
 const getLS = (k: string, d: string) => { try { const v = localStorage.getItem(k); return v ?? d; } catch (_e) { return d; } };
@@ -209,7 +201,7 @@ export default function App() {
   useEffect(() => setLS("date_time", dateTimeLocal), [dateTimeLocal]);
   useEffect(() => setLS("star_sign", sign), [sign]);
 
-  // 初始强制为系统时间；每次打开/聚焦页面自动刷新为当前时间（取消 0 点自动刷新）
+  // 初始强制为系统时间；
   useEffect(() => {
     const now = formatLocal(new Date());
     setDateTimeLocal(now);
@@ -308,7 +300,7 @@ export default function App() {
     }
   };
 
-  // —— 新增：系统时间触发（打开 / 焦点 / 标签可见）使 almanacDate12 更新时间
+  // 系统时间触发（打开 / 焦点 / 标签可见）使 almanacDate12 更新时间
   useEffect(() => {
     const syncAlmanacNow = () => setAlmanacDate12(toApiDateTime(new Date()));
     // 初始同步一次，确保刚打开就是最新
@@ -324,7 +316,7 @@ export default function App() {
     };
   }, []);
 
-  // —— 新增：跨越本地午夜后自动刷新一次
+  // 跨越本地午夜后自动刷新一次
   useEffect(() => {
     let t: any;
     const schedule = () => {
@@ -367,7 +359,7 @@ export default function App() {
       const yiList = normList(d.yi ?? d.suit ?? d.suitable ?? d.jishen ?? d.good);
       const jiList = normList(d.ji ?? d.avoid ?? d.unsuitable ?? d.xiongsha ?? d.bad);
 
-      // —— 六曜：只认 six_star（含大小写/不同分隔写法），并深搜
+      // 六曜：six_star
       const asText = (v: any): string | null => {
         if (v == null) return null;
         if (typeof v === "number") return String(v);
@@ -522,7 +514,7 @@ export default function App() {
       const json = await res.json();
       // 不再对 429 再次回退请求
       if (Number(json?.code) === 429) {
-        setStarError("API 限流，请稍后再试。");
+        setStarError("系统繁忙，请稍后再试。");
         setStarData(null);
       } else {
         setStarData(json);
