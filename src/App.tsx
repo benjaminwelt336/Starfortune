@@ -734,12 +734,12 @@ export default function App() {
           {/* 凶神 */}
           <div className="rounded-2xl border p-4 bg-gradient-to-br from-rose-100 to-amber-100">
             <div className="text-slate-700/80 text-sm">凶神</div>
-            <div className="text-3xl font-bold text-slate-300 mt-1">{almanacParsed.jCount}</div>
+            <div className="text-3xl font-bold text-slate-600 mt-1">{almanacParsed.jCount}</div>
           </div>
           {/* 六曜（six_star） */}
           <div className="rounded-2xl border p-4 bg-gradient-to-br from-violet-100 to-teal-100">
             <div className="text-slate-700/80 text-sm">六曜</div>
-            <div className="text-3xl font-bold text-white mt-1">{almanacParsed.six_star || "—"}</div>
+            <div className="text-3xl font-bold text-orange mt-1">{almanacParsed.six_star || "—"}</div>
           </div>
 
           {/* 宜 */}
